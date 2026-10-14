@@ -1,0 +1,1115 @@
+{
+  "eval": "account_mapping",
+  "ledger": "D:\\Desktop\\githup仓库\\finance-agent-harness\\data\\eval_ledger.db",
+  "n": 165,
+  "seed": 42,
+  "model": "deepseek-chat",
+  "system_accuracy": 0.9939,
+  "system_accuracy_by_description": 0.98,
+  "baseline_accuracy": 0.8303,
+  "delta_pp": 16.36,
+  "by_gold": {
+    "业务招待费": {
+      "n": 15,
+      "acc": 1.0
+    },
+    "主营业务成本": {
+      "n": 15,
+      "acc": 1.0
+    },
+    "主营业务收入": {
+      "n": 15,
+      "acc": 1.0
+    },
+    "差旅费": {
+      "n": 15,
+      "acc": 1.0
+    },
+    "银行手续费": {
+      "n": 15,
+      "acc": 1.0
+    },
+    "税费": {
+      "n": 13,
+      "acc": 1.0
+    },
+    "工资": {
+      "n": 12,
+      "acc": 1.0
+    },
+    "房租": {
+      "n": 12,
+      "acc": 1.0
+    },
+    "水电费": {
+      "n": 12,
+      "acc": 1.0
+    },
+    "社保费": {
+      "n": 12,
+      "acc": 1.0
+    },
+    "通讯费": {
+      "n": 11,
+      "acc": 1.0
+    },
+    "办公费": {
+      "n": 9,
+      "acc": 0.889
+    },
+    "交通费": {
+      "n": 8,
+      "acc": 1.0
+    },
+    "其他": {
+      "n": 1,
+      "acc": 1.0
+    }
+  },
+  "confusions": [
+    {
+      "gold": "办公费",
+      "pred": "其他",
+      "n": 1
+    }
+  ],
+  "errors": [
+    {
+      "description": "紧急采购-天津港进口贸易公司",
+      "gold": "办公费",
+      "pred": "其他",
+      "entry_type": "expense"
+    }
+  ],
+  "per_case": [
+    {
+      "description": "客户招待餐费-赵磊",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-张伟",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-张伟",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-刘洋",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-张伟",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-张伟",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-张伟",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-刘洋",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-孙悦",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-孙悦",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-王强",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-陈静",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-张伟",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-陈静",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "客户招待餐费-刘洋",
+      "gold": "业务招待费",
+      "pred": "业务招待费",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-天津港进口贸易公司",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-天津港进口贸易公司",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-广东东莞制造有限公司",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-福建泉州供应商",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-福建泉州供应商",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-天津港进口贸易公司",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-天津港进口贸易公司",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-浙江义乌小商品批发城",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "采购商品-江苏南通纺织厂",
+      "gold": "主营业务成本",
+      "pred": "主营业务成本",
+      "ok": true
+    },
+    {
+      "description": "销售商品-河北众鑫贸易公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-廊坊兴达实业有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-北京华远建材有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津滨海电子有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津开发区物流有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-廊坊兴达实业有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津开发区物流有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津开发区物流有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-山东鲁通机械厂",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-石家庄恒信商贸",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津开发区物流有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津滨海电子有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-天津海河科技有限公司",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-石家庄恒信商贸",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "销售商品-山东鲁通机械厂",
+      "gold": "主营业务收入",
+      "pred": "主营业务收入",
+      "ok": true
+    },
+    {
+      "description": "打车",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-陈静",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-李娜",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-赵磊",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-陈静",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-张伟",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-刘洋",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "市内交通费-李娜",
+      "gold": "交通费",
+      "pred": "交通费",
+      "ok": true
+    },
+    {
+      "description": "库存现金",
+      "gold": "其他",
+      "pred": "其他",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-王强",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-李娜",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-李娜",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-王强",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-孙悦",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-王强",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-张伟",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "采购办公用品-赵磊",
+      "gold": "办公费",
+      "pred": "办公费",
+      "ok": true
+    },
+    {
+      "description": "紧急采购-天津港进口贸易公司",
+      "gold": "办公费",
+      "pred": "其他",
+      "ok": false
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "计提当月工资",
+      "gold": "工资",
+      "pred": "工资",
+      "ok": true
+    },
+    {
+      "description": "出差报销-赵磊",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-刘洋",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-刘洋",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-赵磊",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-孙悦",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-李娜",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-李娜",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-刘洋",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-张伟",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-赵磊",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-李娜",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-陈静",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-孙悦",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-孙悦",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "出差报销-刘洋",
+      "gold": "差旅费",
+      "pred": "差旅费",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付办公室租金",
+      "gold": "房租",
+      "pred": "房租",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "支付水电费",
+      "gold": "水电费",
+      "pred": "水电费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳社保及公积金",
+      "gold": "社保费",
+      "pred": "社保费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "缴纳增值税",
+      "gold": "税费",
+      "pred": "税费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-赵磊",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-王强",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-王强",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-陈静",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-刘洋",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-赵磊",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-孙悦",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-张伟",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-张伟",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-刘洋",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "话费报销-刘洋",
+      "gold": "通讯费",
+      "pred": "通讯费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    },
+    {
+      "description": "银行手续费",
+      "gold": "银行手续费",
+      "pred": "银行手续费",
+      "ok": true
+    }
+  ],
+  "stats": {
+    "ledger_rows": 548,
+    "ambiguous_descriptions": [
+      "域名服务费",
+      "市内交通费-孙悦"
+    ],
+    "excluded_ambiguous": 7,
+    "excluded_direction": 88,
+    "excluded_unknown_account": 0,
+    "pool_size": 453,
+    "distinct_descriptions": 52,
+    "sampled": 165,
+    "sampled_distinct_descriptions": 50,
+    "per_gold_sampled": {
+      "业务招待费": 15,
+      "主营业务成本": 15,
+      "主营业务收入": 15,
+      "交通费": 8,
+      "其他": 1,
+      "办公费": 9,
+      "工资": 12,
+      "差旅费": 15,
+      "房租": 12,
+      "水电费": 12,
+      "社保费": 12,
+      "税费": 13,
+      "通讯费": 11,
+      "银行手续费": 15
+    },
+    "cap_per_category": 15
+  },
+  "usage": {
+    "calls": 165,
+    "prompt_tokens": 38662,
+    "completion_tokens": 321,
+    "total_tokens": 38983,
+    "elapsed_sec": 133.39
+  },
+  "wall_sec": 133.4
+}

@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能财务 Agent 平台</title>
+<script src="/static/echarts.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,"Microsoft YaHei",sans-serif;display:flex;height:100vh;background:#f4f6fa;color:#1f2937}
+  /* 侧边栏 */
+  aside{width:200px;background:#1e293b;color:#cbd5e1;display:flex;flex-direction:column;flex-shrink:0}
+  .logo{padding:20px 18px;font-size:15px;font-weight:600;color:#fff;border-bottom:1px solid #334155;line-height:1.4}
+  .logo small{display:block;font-weight:400;font-size:11px;color:#94a3b8;margin-top:4px}
+  nav{padding:12px 0;flex:1}
+  .nav-item{padding:12px 18px;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:10px;transition:.15s;border-left:3px solid transparent}
+  .nav-item:hover{background:#334155;color:#fff}
+  .nav-item.active{background:#0f172a;color:#fff;border-left-color:#3b82f6}
+  .nav-group{font-size:11px;color:#64748b;padding:14px 18px 6px;letter-spacing:1px}
+  /* 主区 */
+  main{flex:1;overflow-y:auto;padding:24px}
+  .view{display:none}
+  .view.active{display:block}
+  h2{font-size:19px;margin-bottom:18px;font-weight:600}
+  /* 卡片 */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:20px}
+  .card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .card .label{font-size:12px;color:#6b7280;margin-bottom:8px}
+  .card .value{font-size:24px;font-weight:600}
+  .card .value.income{color:#059669}
+  .card .value.expense{color:#dc2626}
+  .card .value.net{color:#2563eb}
+  /* 图表 */
+  .chart-box{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:20px}
+  .chart-box h3{font-size:14px;margin-bottom:12px;color:#374151;font-weight:600}
+  .chart{width:100%;height:320px}
+  /* 表格 */
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  th{background:#f8fafc;text-align:left;padding:11px 14px;font-size:12px;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0}
+  td{padding:10px 14px;font-size:13px;border-bottom:1px solid #f1f5f9}
+  tr:hover td{background:#f8fafc}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:#e0e7ff;color:#3730a3}
+  .tag.income{background:#d1fae5;color:#065f46}
+  .tag.expense{background:#fee2e2;color:#991b1b}
+  /* 对话 */
+  /* 编辑弹窗 */
+  .modal-mask{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99;
+    align-items:center;justify-content:center}
+  .modal-mask.show{display:flex}
+  .modal{background:#fff;border-radius:12px;padding:24px;width:440px;max-width:92vw;
+    max-height:88vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+  .modal h3{font-size:16px;margin-bottom:16px}
+  .modal .row-btns{display:flex;gap:10px;margin-top:18px}
+  .modal .row-btns button{flex:1;padding:11px;border-radius:8px;font-size:14px;cursor:pointer}
+
+  /* 记账表单 */
+  .form-box{background:#fff;border-radius:10px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.06);max-width:620px}
+  .type-tabs{display:flex;gap:8px;margin-bottom:20px}
+  .type-tabs button{flex:1;padding:11px;border:1px solid #d1d5db;background:#fff;border-radius:8px;
+    cursor:pointer;font-size:14px;color:#475569}
+  .type-tabs button.active{background:#3b82f6;border-color:#3b82f6;color:#fff;font-weight:600}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:13px;color:#64748b;margin-bottom:6px}
+  .field input,.field select{width:100%;padding:11px 13px;border:1px solid #d1d5db;
+    border-radius:8px;font-size:14px;outline:none;background:#fff}
+  .field input:focus,.field select:focus{border-color:#3b82f6}
+  .form-msg{margin-top:14px;padding:12px;border-radius:8px;font-size:13px;display:none}
+  .form-msg.ok{display:block;background:#dcfce7;color:#15803d}
+  .form-msg.err{display:block;background:#fee2e2;color:#b91c1c}
+  /* 发票识别结果面板 */
+  .parse-box{display:none;margin-top:10px;padding:12px;border-radius:8px;font-size:13px;
+    background:#f0f9ff;border:1px solid #bae6fd;line-height:1.8}
+  .parse-box.show{display:block}
+  .parse-box .warn{color:#b45309;background:#fef3c7;padding:6px 10px;border-radius:6px;
+    margin-top:8px;font-size:12px}
+  .recent{margin-top:24px;max-width:620px}
+  .recent h3{font-size:14px;color:#374151;margin-bottom:10px}
+  .recent .row{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 12px;background:#fff;border-radius:6px;margin-bottom:6px;font-size:13px}
+  .recent .row .x{color:#cbd5e1;cursor:pointer;padding:0 4px}
+  .recent .row .x:hover{color:#dc2626}
+  .chat-layout{display:flex;gap:16px;height:calc(100vh - 90px)}
+  .conv-panel{width:220px;background:#fff;border-radius:10px;padding:12px;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .conv-panel button.new{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;margin-bottom:10px}
+  .conv-list{flex:1;overflow-y:auto}
+  .conv-item{padding:9px 10px;border-radius:6px;font-size:13px;cursor:pointer;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:6px;color:#475569}
+  .conv-item:hover{background:#f1f5f9}
+  .conv-item.active{background:#e0e7ff;color:#3730a3;font-weight:600}
+  .conv-item .title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .conv-item .del{color:#cbd5e1;font-size:15px;line-height:1;padding:0 3px}
+  .conv-item .del:hover{color:#dc2626}
+  .chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+  #chatBox{background:#fff;border-radius:10px;padding:18px;flex:1;overflow-y:auto;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:14px}
+  .msg{margin-bottom:14px;display:flex}
+  .msg.user{justify-content:flex-end}
+  .bubble{max-width:72%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.6;white-space:pre-wrap}
+  .msg.ai .bubble{background:#f1f5f9;color:#1f2937}
+  .msg.user .bubble{background:#3b82f6;color:#fff}
+  /* 动作标签：让用户一眼看出 Agent 这次是「记账」还是「查询」 */
+  .act{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px 4px}
+  .act span{font-size:11px;padding:3px 9px;border-radius:10px;font-weight:500}
+  .act .record{background:#dcfce7;color:#15803d}
+  .act .query{background:#dbeafe;color:#1d4ed8}
+  .act .reconcile{background:#fef3c7;color:#b45309}
+  .act .delete{background:#fee2e2;color:#b91c1c}
+  .act .chat{background:#f1f5f9;color:#64748b}
+  /* 快捷按钮 */
+  .quick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .quick button{background:#fff;border:1px solid #d1d5db;border-radius:16px;
+    padding:6px 14px;font-size:12px;cursor:pointer;color:#475569}
+  .quick button:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
+  .input-row{display:flex;gap:10px}
+  #chatInput{flex:1;padding:12px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none}
+  #chatInput:focus{border-color:#3b82f6}
+  button.primary{background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-size:14px;cursor:pointer}
+  button.primary:disabled{opacity:.5;cursor:not-allowed}
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center}
+  select{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff}
+  #reconcileResult{background:#fff;border-radius:10px;padding:18px;margin-top:16px;white-space:pre-wrap;font-size:14px;line-height:1.8;box-shadow:0 1px 3px rgba(0,0,0,.06);min-height:80px}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">智能财务 Agent<small>企业私有财务库</small></div>
+  <nav>
+    <div class="nav-group">出纳（管钱）</div>
+    <div class="nav-item" data-view="record">🧾 智能出纳</div>
+
+    <div class="nav-group">会计（管账）</div>
+    <div class="nav-item" data-view="accounting">📚 智能会计<span id="pendingBadge" style="display:none;margin-left:6px;background:#dc2626;color:#fff;border-radius:9px;padding:0 6px;font-size:11px"></span></div>
+    <div class="nav-item" data-view="checkup">🔍 月末核对</div>
+
+    <div class="nav-group">智能分析</div>
+    <div class="nav-item" data-view="analysis">🧠 财务分析</div>
+
+    <div class="nav-group">智能查询</div>
+    <div class="nav-item active" data-view="chat">💬 智能助手</div>
+
+    <div class="nav-group">财务报表</div>
+    <div class="nav-item" data-view="company">🏢 公司概况</div>
+    <div class="nav-item" data-view="overview">📊 财务总览</div>
+    <div class="nav-item" data-view="income">📈 利润表</div>
+    <div class="nav-item" data-view="balances">💰 账户余额</div>
+    <div class="nav-item" data-view="counterparties">👥 往来单位</div>
+    <div class="nav-item" data-view="entries">📋 账目明细</div>
+    <div class="nav-item" data-view="reconcile">⚠️ 异常检测</div>
+  </nav>
+</aside>
+
+<main>
+  <!-- 编辑弹窗：被驳回的单据补正后再提交 -->
+  <div class="modal-mask" id="editMask">
+    <div class="modal">
+      <h3>修改单据</h3>
+      <input type="hidden" id="eId" />
+      <div class="field"><label>收/付</label>
+        <select id="eType">
+          <option value="expense">付款</option>
+          <option value="income">收款</option>
+        </select></div>
+      <div class="field"><label>金额（元）</label>
+        <input id="eAmount" type="number" step="0.01" min="0.01" /></div>
+      <div class="field"><label>摘要</label>
+        <input id="eDesc" type="text" /></div>
+      <div class="field"><label>日期</label>
+        <input id="eDate" type="date" /></div>
+      <div class="field"><label>收付款方式</label>
+        <select id="ePayment">
+          <option value="银行存款">银行存款</option>
+          <option value="库存现金">库存现金</option>
+        </select></div>
+      <div class="field"><label>更换凭证（不选则保留原件）</label>
+        <input id="eVoucher" type="file" accept=".pdf,.jpg,.jpeg,.png,.ofd,.webp" /></div>
+      <div class="form-msg" id="eMsg"></div>
+      <div class="row-btns">
+        <button onclick="closeEdit()"
+          style="border:1px solid #d1d5db;background:#fff;color:#475569">取消</button>
+        <button class="primary" onclick="submitEdit()">保存并重新提交审核</button>
+      </div>
+    </div>
+  </div>
+  <!-- 智能出纳（只管钱和票，不定科目） -->
+  <section class="view" id="view-record">
+    <h2>🧾 智能出纳</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:16px">
+      出纳只登记<b>钱怎么动的、票在哪</b>。科目由会计审核时确定——
+      你不需要懂会计科目。
+    </p>
+    <div class="form-box">
+      <div class="field">
+        <label>① 上传发票 / 凭证 <span style="color:#dc2626">*必传</span></label>
+        <input id="fVoucher" type="file" accept=".pdf,.jpg,.jpeg,.png,.ofd,.webp"
+               onchange="onVoucherPicked()" />
+        <div style="font-size:12px;color:#9ca3af;margin-top:6px" id="fVoucherHint">
+          发票、收据、银行回单、工资表都可以——不是所有支出都有发票。
+        </div>
+        <div class="parse-box" id="parseBox"></div>
+      </div>
+
+      <div class="type-tabs">
+        <button class="active" data-type="expense" onclick="setType('expense')">付款</button>
+        <button data-type="income" onclick="setType('income')">收款</button>
+      </div>
+
+      <div class="field">
+        <label>② 金额（元）</label>
+        <input id="fAmount" type="number" step="0.01" min="0.01" placeholder="识别后自动填写" />
+      </div>
+
+      <div class="field">
+        <label>③ 摘要（这笔钱是干什么的）</label>
+        <input id="fDesc" type="text" placeholder="识别后自动填写" />
+      </div>
+
+      <div class="field">
+        <label>④ 凭证类型</label>
+        <select id="fVoucherType"></select>
+      </div>
+
+      <div class="field">
+        <label>⑤ 日期</label>
+        <input id="fDate" type="date" />
+      </div>
+
+      <div class="field">
+        <label>⑥ 收付款方式</label>
+        <select id="fPayment">
+          <option value="银行存款">银行存款</option>
+          <option value="库存现金">库存现金</option>
+        </select>
+      </div>
+
+      <div class="field" id="fCounterpartyWrap">
+        <label>⑦ 往来单位（可不填）</label>
+        <select id="fCounterparty"><option value="">— 不涉及 —</option></select>
+        <div style="font-size:12px;margin-top:6px" id="partyHint"></div>
+      </div>
+
+      <button class="primary" style="width:100%" onclick="submitEntry()">登记并提交会计审核</button>
+      <div class="form-msg" id="formMsg"></div>
+    </div>
+
+    <div class="recent">
+      <h3>我的单据</h3>
+      <div id="recentList"></div>
+    </div>
+  </section>
+
+  <!-- 对话 -->
+  <section class="view active" id="view-chat">
+    <div class="chat-layout">
+      <div class="conv-panel">
+        <button class="new" onclick="newConversation()">＋ 新建对话</button>
+        <div class="conv-list" id="convList"></div>
+      </div>
+      <div class="chat-main">
+        <div id="chatBox">
+          <div class="msg ai"><div class="bubble">你好，我是财务查询助手，负责帮你<b>查账和分析</b>。<br><br>你可以问：<br>「这个月支出多少？」<br>「我还有多少流动资金？」<br>「查一下和 XX 公司的往来」<br>「帮我核对账目」<br><br>⚠️ <b>我不能记账</b>——记账要去左侧「🧾 智能出纳」登记（需要上传凭证，之后由会计审核），这是内控要求的。</div></div>
+        </div>
+        <div class="quick">
+          <span style="font-size:12px;color:#94a3b8;align-self:center;margin-right:4px">试试问：</span>
+          <button onclick="quick('这个月的支出情况怎么样？')">查本月支出</button>
+          <button onclick="quick('我现在还有多少流动资金？')">查流动资金</button>
+          <button onclick="quick('查一下和石家庄恒信商贸的业务往来')">查客户往来</button>
+          <button onclick="quick('帮我核对一下账目有没有异常')">对账</button>
+          <button onclick="quick('这个月哪类支出最多？')">查最大支出</button>
+          <button onclick="quick('删掉刚才那笔')">撤销上一笔</button>
+        </div>
+        <div class="input-row">
+          <label for="chatFile" title="上传凭证（发票/收据）后才能记账"
+            style="display:flex;align-items:center;justify-content:center;width:46px;
+                   border:1px solid #d1d5db;border-radius:8px;cursor:pointer;font-size:18px;
+                   background:#fff">📎</label>
+          <input id="chatFile" type="file" style="display:none"
+                 accept=".pdf,.jpg,.jpeg,.png,.ofd,.webp" onchange="onChatFilePicked()" />
+          <input id="chatInput" placeholder="问点什么，或上传凭证后说「帮我记账」" />
+          <button class="primary" id="sendBtn" onclick="sendChat()">发送</button>
+        </div>
+        <div id="chatFileHint" style="font-size:12px;color:#059669;margin-top:6px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 公司概况 -->
+  <section class="view" id="view-company">
+    <h2>公司概况</h2>
+    <div id="companyHeader"></div>
+    <div id="companyInfo"></div>
+    <div id="companyBiz"></div>
+    <div class="chart-box" id="companyFinance"></div>
+  </section>
+
+  <!-- 总览 -->
+  <section class="view" id="view-overview">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <h2 style="margin:0">财务总览</h2>
+      <a href="/api/v1/export/report" style="text-decoration:none">
+        <button class="primary" style="padding:9px 18px;font-size:13px">⬇ 导出 Excel 报表</button>
+      </a>
+    </div>
+    <div class="cards" id="statCards"></div>
+    <div class="chart-box">
+      <h3>月度收支趋势</h3>
+      <div class="chart" id="chartMonthly"></div>
+    </div>
+    <div class="chart-box">
+      <h3>支出科目分布</h3>
+      <div class="chart" id="chartCategory"></div>
+    </div>
+  </section>
+
+  <!-- 账户余额 -->
+  <section class="view" id="view-balances">
+    <h2>账户余额表</h2>
+    <div class="cards" id="balanceCards"></div>
+    <div id="balanceTables"></div>
+    <div class="chart-box" id="trialBox" style="margin-top:20px"></div>
+  </section>
+
+  <!-- 往来单位 -->
+  <section class="view" id="view-counterparties">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <h2 style="margin:0">往来单位</h2>
+      <button class="primary" style="padding:9px 16px;font-size:13px"
+              onclick="showAddCounterparty()">＋ 新增单位</button>
+    </div>
+    <div id="cpForm" style="display:none;margin-bottom:16px" class="chart-box">
+      <h3>新增往来单位</h3>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <input id="cpName" placeholder="单位名称" style="flex:2;min-width:160px;padding:9px;border:1px solid #d1d5db;border-radius:6px" />
+        <select id="cpKind" style="padding:9px;border:1px solid #d1d5db;border-radius:6px">
+          <option value="customer">客户</option>
+          <option value="supplier">供应商</option>
+        </select>
+        <input id="cpContact" placeholder="联系人（可不填）" style="flex:1;min-width:120px;padding:9px;border:1px solid #d1d5db;border-radius:6px" />
+        <button class="primary" onclick="addCounterparty()">保存</button>
+        <button onclick="document.getElementById('cpForm').style.display='none'"
+                style="padding:9px 14px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">取消</button>
+      </div>
+      <div id="cpMsg" style="font-size:13px;margin-top:10px"></div>
+    </div>
+    <table>
+      <thead><tr><th>类型</th><th>单位名称</th><th style="text-align:right">往来笔数</th>
+        <th style="text-align:right">往来金额</th><th style="text-align:right">其中挂账</th>
+        <th>最近交易</th></tr></thead>
+      <tbody id="cpBody"></tbody>
+    </table>
+  </section>
+
+  <!-- 智能会计：审核出纳交来的单据 -->
+  <section class="view" id="view-accounting">
+    <h2>智能会计 · 单据审核</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:16px">
+      出纳只负责登记收付款，<b>科目由会计在这里确定</b>——这是《会计法》
+      不相容职务分离的要求：管钱的不管账，管账的不管钱。
+    </p>
+    <div class="cards" id="acctStats"></div>
+
+    <div class="type-tabs" style="margin-top:18px">
+      <button class="active" data-tab="pending" onclick="switchAcctTab('pending')">待审核单据</button>
+      <button data-tab="vouchers" onclick="switchAcctTab('vouchers')">已入账凭证（含借贷分录）</button>
+    </div>
+
+    <div id="acctTab-pending">
+      <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center">
+        <button onclick="approveSuggested()"
+          style="padding:8px 14px;font-size:13px;border:none;border-radius:6px;
+                 background:#059669;color:#fff;cursor:pointer">🤖 按建议科目批量通过</button>
+        <span style="font-size:12px;color:#6b7280">
+          系统已按摘要猜好科目，有疑问的（建议为"其他"）会保留给你逐笔判断</span>
+      </div>
+      <table>
+        <thead><tr><th>日期</th><th>摘要</th><th>往来单位</th><th>收/付</th>
+          <th style="text-align:right">金额</th><th style="text-align:center">凭证</th>
+          <th style="width:280px">会计操作</th></tr></thead>
+        <tbody id="pendingBody"></tbody>
+      </table>
+    </div>
+
+    <div id="acctTab-vouchers" style="display:none">
+      <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center">
+        <select id="voucherPeriod" onchange="loadVouchers()"
+                style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></select>
+        <span id="voucherCount" style="font-size:13px;color:#6b7280"></span>
+      </div>
+      <table>
+        <thead><tr><th>日期</th><th>摘要</th><th>借方科目</th><th>贷方科目</th>
+          <th style="text-align:right">金额</th><th style="width:180px">改科目</th></tr></thead>
+        <tbody id="voucherBody"></tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:15px;margin:26px 0 10px">期末结账</h3>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:12px">
+      月末要计提折旧、结转损益——做完这个月的账才算闭合。结账后本月不能再改。
+    </p>
+    <div class="chart-box">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="closePeriod" style="padding:9px;border:1px solid #d1d5db;border-radius:6px"></select>
+        <button class="primary" style="padding:9px 16px;font-size:13px" onclick="previewClosing()">预览结账</button>
+        <button id="doCloseBtn" style="display:none;padding:9px 16px;font-size:13px;border:none;
+          border-radius:6px;background:#dc2626;color:#fff;cursor:pointer" onclick="doClosing()">确认结账</button>
+        <span id="closeMsg" style="font-size:13px"></span>
+      </div>
+      <div id="closePreview" style="margin-top:12px"></div>
+      <div id="closedList" style="margin-top:14px;font-size:13px;color:#64748b"></div>
+    </div>
+  </section>
+
+  <!-- 利润表 -->
+  <section class="view" id="view-income">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <h2 style="margin:0">利润表</h2>
+      <select id="isPeriod" onchange="loadIncomeStatement()"
+              style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></select>
+    </div>
+    <div class="chart-box">
+      <table style="box-shadow:none">
+        <thead><tr><th>项目</th><th style="text-align:right;width:200px">金额（元）</th></tr></thead>
+        <tbody id="isBody"></tbody>
+      </table>
+    </div>
+    <div class="cards" id="isCards"></div>
+  </section>
+
+  <!-- 月末核对：现金盘点 / 银行调节表 / 往来对账单 -->
+  <section class="view" id="view-checkup">
+    <h2>月末核对</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:16px">
+      会计月末要对账，行话叫<b>「四相符」</b>：账证相符、账账相符、
+      <b>账实相符</b>（这里做）、账表相符。<br>
+      账实相符就是：<b>账上记的钱，和现实里实际有多少，对不对得上</b>。
+    </p>
+
+    <div class="type-tabs">
+      <button class="active" data-tab="cash" onclick="switchChkTab('cash')">① 现金盘点</button>
+      <button data-tab="bank" onclick="switchChkTab('bank')">② 银行余额调节表</button>
+      <button data-tab="stmt" onclick="switchChkTab('stmt')">③ 往来对账单</button>
+    </div>
+
+    <!-- 现金盘点 -->
+    <div id="chkTab-cash">
+      <div class="chart-box">
+        <h3>盘点现金</h3>
+        <p style="font-size:13px;color:#6b7280;margin:8px 0 12px">
+          出纳实际点钞票，把实盘数填进来，系统自动和账面比。
+          <b>对不上就是盘盈/盘亏，必须查明原因</b>——短款通常要出纳赔偿。
+        </p>
+        <div class="cards" style="margin-bottom:14px">
+          <div class="card"><div class="label">账面应有现金</div>
+            <div class="value" id="cashBook">—</div></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0"><label>实盘金额（元）</label>
+            <input id="cashActual" type="number" step="0.01" min="0" style="width:160px"
+                   placeholder="实际点出多少" /></div>
+          <div class="field" style="margin:0"><label>盘点日期</label>
+            <input id="cashDate" type="date" style="width:150px" /></div>
+          <div class="field" style="margin:0;flex:1;min-width:160px"><label>备注</label>
+            <input id="cashNote" type="text" placeholder="如：短款待查" /></div>
+          <button class="primary" style="padding:11px 20px" onclick="submitCashCheck()">登记盘点</button>
+        </div>
+        <div class="form-msg" id="cashMsg"></div>
+      </div>
+      <h3 style="font-size:14px;margin:18px 0 10px">盘点记录</h3>
+      <table>
+        <thead><tr><th>盘点日期</th><th style="text-align:right">账面</th>
+          <th style="text-align:right">实盘</th><th style="text-align:right">差额</th>
+          <th>结果</th><th>备注</th></tr></thead>
+        <tbody id="cashHistory"></tbody>
+      </table>
+    </div>
+
+    <!-- 银行余额调节表 -->
+    <div id="chkTab-bank" style="display:none">
+      <div class="chart-box">
+        <h3>银行存款余额调节表</h3>
+        <p style="font-size:13px;color:#6b7280;margin:8px 0 12px">
+          银行对账单和企业账面通常对不上，因为有些账<b>一方记了一方还没记</b>（未达账项）。
+          把这些加减掉，两边调成一致，才能确认银行账没记错。
+        </p>
+        <div class="cards" style="margin-bottom:14px">
+          <div class="card"><div class="label">企业账面银行存款</div>
+            <div class="value" id="bankBook">—</div></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0"><label>期间</label>
+            <select id="bankPeriod" style="width:130px"></select></div>
+          <div class="field" style="margin:0"><label>银行对账单余额</label>
+            <input id="bankStatement" type="number" step="0.01" style="width:170px"
+                   placeholder="从对账单抄过来" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px">＋ 企业已收、银行未收</div>
+            <input id="bankAddDesc" placeholder="如：客户转账在路上"
+              style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:6px" />
+            <input id="bankAddAmt" type="number" step="0.01" placeholder="金额"
+              style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px" />
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px">－ 企业已付、银行未付</div>
+            <input id="bankSubDesc" placeholder="如：开出支票未兑付"
+              style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:6px" />
+            <input id="bankSubAmt" type="number" step="0.01" placeholder="金额"
+              style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px" />
+          </div>
+        </div>
+        <button class="primary" style="margin-top:14px;padding:11px 20px"
+                onclick="submitBankRecon()">编制调节表</button>
+        <div class="form-msg" id="bankMsg"></div>
+      </div>
+      <h3 style="font-size:14px;margin:18px 0 10px">历史调节表</h3>
+      <div id="bankHistory"></div>
+    </div>
+
+    <!-- 往来对账单 -->
+    <div id="chkTab-stmt" style="display:none">
+      <div class="chart-box">
+        <h3>生成往来对账单</h3>
+        <p style="font-size:13px;color:#6b7280;margin:8px 0 12px">
+          对账单是发给客户/供应商核对的：<b>"截至 X 月末，你欠我 XX 元，有出入请指出。"</b>
+          对方确认了，往来账才算数。
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0"><label>往来单位</label>
+            <select id="stmtCp" style="width:220px"></select></div>
+          <div class="field" style="margin:0"><label>起始日期</label>
+            <input id="stmtStart" type="date" style="width:150px" /></div>
+          <div class="field" style="margin:0"><label>截止日期</label>
+            <input id="stmtEnd" type="date" style="width:150px" /></div>
+          <button class="primary" style="padding:11px 20px" onclick="loadStatement()">生成对账单</button>
+        </div>
+      </div>
+      <div class="chart-box" id="stmtBox" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- 财务分析（多智能体） -->
+  <section class="view" id="view-analysis">
+    <h2>财务分析</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:16px">
+      <b>多智能体协作</b>：四个专业分析角色（盈利 / 偿债 / 营运 / 风险）
+      各自看自己维度的数据、并行分析，最后交给"财务总监"汇总成一份体检报告。
+    </p>
+
+    <div class="cards" id="anaCards"></div>
+
+    <div style="display:flex;gap:12px;align-items:center;margin:18px 0">
+      <button class="primary" style="padding:11px 22px" onclick="runAnalysis()">
+        🧠 开始 AI 分析</button>
+      <span style="font-size:12px;color:#6b7280">
+        会调用 5 次大模型（4 个分析角色 + 1 个汇总），约 30-60 秒</span>
+    </div>
+    <div class="form-msg" id="anaMsg"></div>
+
+    <div id="anaReport" style="display:none">
+      <div class="chart-box" style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff">
+        <h3 style="color:#fff;font-size:15px;margin-bottom:10px">📋 财务体检报告</h3>
+        <div id="anaReportBody" style="font-size:14px;line-height:1.9;white-space:pre-wrap"></div>
+      </div>
+      <h3 style="font-size:14px;margin:18px 0 10px">四位分析师的意见</h3>
+      <div id="anaSections"></div>
+    </div>
+  </section>
+
+  <!-- 明细 -->
+  <section class="view" id="view-entries">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <h2 style="margin:0">账目明细</h2>
+      <a href="/api/v1/export/report" style="text-decoration:none">
+        <button class="primary" style="padding:9px 18px;font-size:13px">⬇ 导出 Excel</button>
+      </a>
+    </div>
+    <div class="toolbar">
+      <select id="filterCategory" onchange="loadEntries()"><option value="">全部科目</option></select>
+      <span id="entriesCount" style="font-size:13px;color:#6b7280"></span>
+    </div>
+    <table>
+      <thead><tr><th>日期</th><th>摘要</th><th>科目</th><th>借方</th><th>贷方</th>
+        <th style="text-align:center">状态</th>
+        <th style="text-align:center">凭证</th>
+        <th style="text-align:right">金额</th><th style="width:40px"></th></tr></thead>
+      <tbody id="entriesBody"></tbody>
+    </table>
+  </section>
+
+  <!-- 对账 -->
+  <section class="view" id="view-reconcile">
+    <h2>月末对账</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:14px">扫描全部账目，自动发现大额支出、重复记账、信息缺失等异常。</p>
+    <button class="primary" onclick="runReconcile()">开始对账</button>
+    <div id="reconcileResult">点击「开始对账」开始检查。</div>
+  </section>
+</main>
+
+<script>
+// ---------- 视图切换 ----------
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('view-' + el.dataset.view).classList.add('active');
+    const v = el.dataset.view;
+    if (v === 'record') loadRecordForm();
+    if (v === 'accounting') loadAccounting();
+    if (v === 'analysis') loadAnalysis();
+    if (v === 'checkup') loadCheckup();
+    if (v === 'income') loadIncomeStatement();
+    if (v === 'counterparties') loadCounterparties();
+    if (v === 'company') loadCompany();
+    if (v === 'overview') { loadOverview(); loadCategoryChart(); loadMonthlyChart(); }
+    if (v === 'balances') loadBalances();
+    if (v === 'entries') loadEntries();
+  };
+});
+
+// ---------- 智能会计：审核单据 ----------
+let acctOptions = null;
+
+async function loadAccounting() {
+  if (!acctOptions) {
+    acctOptions = await (await fetch('/api/v1/accounting/options')).json();
+  }
+  const stats = await (await fetch('/api/v1/accounting/stats')).json();
+  const c = stats.counts;
+  document.getElementById('acctStats').innerHTML = `
+    <div class="card"><div class="label">待审核</div>
+      <div class="value ${c.pending ? 'expense' : 'income'}">${c.pending}</div></div>
+    <div class="card"><div class="label">已入账</div>
+      <div class="value income">${c.approved}</div></div>
+    <div class="card"><div class="label">已驳回</div>
+      <div class="value">${c.rejected}</div></div>
+    <div class="card"><div class="label">待审核金额</div>
+      <div class="value">¥${fmt(stats.pending_amount)}</div></div>`;
+
+  const d = await (await fetch('/api/v1/accounting/pending')).json();
+  const body = document.getElementById('pendingBody');
+  if (!d.items.length) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">
+      暂无待审核单据。出纳提交后会自动出现在这里。</td></tr>`;
+    updatePendingBadge();
+    return;
+  }
+
+  // 付款 → 费用/资产类科目；收款 → 收入类科目
+  const opts = (t, sug) => (t === 'income' ? acctOptions.income_accounts
+                                            : acctOptions.expense_accounts)
+    .map(a => `<option ${a === sug ? 'selected' : ''}>${a}</option>`).join('');
+  const assetOpts = (sug) => acctOptions.asset_accounts
+    .map(a => `<option ${a === sug ? 'selected' : ''}>${a}</option>`).join('');
+
+  body.innerHTML = d.items.map(e => {
+    const voucher = e.attachment
+      ? `<a href="/api/v1/entries/${e.id}/voucher" target="_blank" style="text-decoration:none">📎</a>`
+      : '<span style="color:#cbd5e1">—</span>';
+    const dir = e.entry_type === 'income' ? '收款' : '付款';
+    const sug = e.suggested_category || '';
+    // 系统已经按摘要猜了科目，预选好——会计核对一下就行，不用每次翻下拉
+    const hint = sug
+      ? `<div style="font-size:11px;color:#059669;margin-top:3px">🤖 建议：${sug}</div>`
+      : '';
+    return `
+    <tr>
+      <td>${e.date}</td>
+      <td>${e.description}</td>
+      <td>${e.counterparty_name || '—'}</td>
+      <td><span class="tag ${e.entry_type === 'income' ? 'income' : 'expense'}">${dir}</span></td>
+      <td style="text-align:right;font-weight:600">¥${fmt(e.amount)}</td>
+      <td style="text-align:center">${voucher}</td>
+      <td>
+        <select id="cat_${e.id}" style="padding:5px;font-size:12px;border:1px solid #d1d5db;border-radius:5px;max-width:120px">
+          <option value="">选择科目…</option>
+          ${opts(e.entry_type, sug)}
+          ${e.entry_type === 'expense' ? assetOpts(sug) : ''}
+        </select>
+        <button onclick="approveEntry(${e.id})"
+          style="padding:5px 10px;font-size:12px;border:none;border-radius:5px;background:#059669;color:#fff;cursor:pointer">通过</button>
+        <button onclick="rejectEntry(${e.id})"
+          style="padding:5px 10px;font-size:12px;border:1px solid #dc2626;border-radius:5px;background:#fff;color:#dc2626;cursor:pointer">驳回</button>
+        ${hint}
+      </td>
+    </tr>`;
+  }).join('');
+  updatePendingBadge();
+  loadClosingPanel();
+}
+
+async function approveSuggested() {
+  if (!confirm('把待审核单据里「建议科目明确」的一次性通过？\n有疑问的会保留给你逐笔判断。')) return;
+  const r = await fetch('/api/v1/accounting/approve-suggested', {method:'POST'});
+  const d = await r.json();
+  if (r.ok && d.ok) { alert('✓ ' + d.message); loadAccounting(); }
+  else { alert(d.detail || d.message || '操作失败'); }
+}
+
+async function approveEntry(id) {
+  const cat = document.getElementById('cat_' + id).value;
+  if (!cat) { alert('请先选择科目——这是会计分录的依据'); return; }
+  const r = await fetch(`/api/v1/accounting/${id}/approve`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({category: cat})
+  });
+  const d = await r.json();
+  if (r.ok && d.ok) { loadAccounting(); }
+  else { alert(d.detail || d.message || '审核失败'); }
+}
+
+async function rejectEntry(id) {
+  const reason = prompt('驳回原因（出纳会看到）：', '凭证不清晰，请重新上传');
+  if (!reason) return;
+  const r = await fetch(`/api/v1/accounting/${id}/reject`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({reason: reason})
+  });
+  if (r.ok) loadAccounting();
+  else alert('驳回失败');
+}
+
+async function updatePendingBadge() {
+  try {
+    const s = await (await fetch('/api/v1/accounting/stats')).json();
+    const n = s.counts.pending;
+    const b = document.getElementById('pendingBadge');
+    if (n > 0) { b.style.display = 'inline-block'; b.textContent = n; }
+    else { b.style.display = 'none'; }
+  } catch(e) { /* 忽略 */ }
+}
+
+// ---------- 会计页 tab 切换 ----------
+function switchAcctTab(tab) {
+  document.querySelectorAll('#view-accounting .type-tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('acctTab-pending').style.display = tab === 'pending' ? 'block' : 'none';
+  document.getElementById('acctTab-vouchers').style.display = tab === 'vouchers' ? 'block' : 'none';
+  if (tab === 'vouchers') loadVouchers();
+}
+
+// 已入账凭证：这是会计最核心的产物——每笔业务的分录
+async function loadVouchers() {
+  if (!acctOptions) {
+    acctOptions = await (await fetch('/api/v1/accounting/options')).json();
+  }
+  const sel = document.getElementById('voucherPeriod');
+  if (!sel.options.length) {
+    const p = await (await fetch('/api/v1/closing/periods')).json();
+    sel.innerHTML = `<option value="">全部期间</option>` +
+      p.available.slice().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
+  }
+  const period = sel.value;
+  const url = '/api/v1/accounting/vouchers' + (period ? `?period=${period}` : '');
+  const d = await (await fetch(url)).json();
+  document.getElementById('voucherCount').textContent = `共 ${d.count} 张凭证`;
+
+  const body = document.getElementById('voucherBody');
+  if (!d.items.length) {
+    body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px">
+      暂无已入账凭证。</td></tr>`;
+    return;
+  }
+  body.innerHTML = d.items.map(e => {
+    // 结转分录用灰色标注，它不是业务凭证
+    const isClosing = e.entry_type === 'closing';
+    return `
+    <tr style="${isClosing ? 'background:#f8fafc' : ''}">
+      <td>${e.date}</td>
+      <td>${e.description}${isClosing ? ' <span class="tag" style="background:#e2e8f0;color:#64748b">结转</span>' : ''}</td>
+      <td><b>借</b> ${e.debit_account || '—'}</td>
+      <td><b>贷</b> ${e.credit_account || '—'}</td>
+      <td style="text-align:right;font-weight:600">¥${fmt(e.amount)}</td>
+      <td>${isClosing ? '<span style="color:#cbd5e1;font-size:12px">期末分录</span>' : `
+        <select id="rc_${e.id}" style="padding:4px;font-size:12px;border:1px solid #d1d5db;border-radius:5px;max-width:90px">
+          ${[...acctOptions.expense_accounts, ...acctOptions.income_accounts, ...acctOptions.asset_accounts]
+            .map(a => `<option ${a === e.category ? 'selected' : ''}>${a}</option>`).join('')}
+        </select>
+        <button onclick="recategorize(${e.id})"
+          style="padding:4px 8px;font-size:12px;border:1px solid #3b82f6;border-radius:5px;
+                 background:#fff;color:#3b82f6;cursor:pointer">改</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function recategorize(id) {
+  const cat = document.getElementById('rc_' + id).value;
+  const r = await fetch(`/api/v1/accounting/${id}/recategorize`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({category: cat})
+  });
+  const d = await r.json();
+  if (r.ok && d.ok) { alert('✓ ' + d.message); loadVouchers(); }
+  else { alert(d.detail || d.message || '修改失败'); }
+}
+
+// ---------- 利润表 ----------
+async function loadIncomeStatement() {
+  const sel = document.getElementById('isPeriod');
+  if (!sel.options.length) {
+    const p = await (await fetch('/api/v1/closing/periods')).json();
+    sel.innerHTML = `<option value="">全部期间</option>` +
+      p.available.slice().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
+  }
+  const period = sel.value;
+  const url = '/api/v1/closing/income-statement' + (period ? `?period=${period}` : '');
+  const d = await (await fetch(url)).json();
+
+  document.getElementById('isBody').innerHTML = d.lines.map(l => `
+    <tr>
+      <td style="${l.bold ? 'font-weight:700' : ''};padding-left:${l.indent ? '28px' : '14px'}">${l.name}</td>
+      <td style="text-align:right;${l.bold ? 'font-weight:700;' : ''}">${fmt(l.amount)}</td>
+    </tr>`).join('');
+
+  document.getElementById('isCards').innerHTML = `
+    <div class="card"><div class="label">营业收入</div>
+      <div class="value income">¥${fmt(d.revenue)}</div></div>
+    <div class="card"><div class="label">毛利（毛利率）</div>
+      <div class="value">¥${fmt(d.gross_profit)}<span style="font-size:14px;color:#6b7280"> （${d.gross_margin}%）</span></div></div>
+    <div class="card"><div class="label">净利润（净利率）</div>
+      <div class="value ${d.net_profit >= 0 ? 'income' : 'expense'}">¥${fmt(d.net_profit)}
+      <span style="font-size:14px;color:#6b7280"> （${d.net_margin}%）</span></div></div>`;
+}
+
+// ---------- 期末结账 ----------
+async function loadClosingPanel() {
+  const p = await (await fetch('/api/v1/closing/periods')).json();
+  const sel = document.getElementById('closePeriod');
+  sel.innerHTML = p.available.slice().reverse()
+    .map(m => `<option value="${m}">${m}</option>`).join('');
+  const closedSet = new Set(p.closed.map(c => c.period));
+  document.getElementById('closedList').innerHTML = p.closed.length
+    ? '已结账期间：' + p.closed.map(c => `${c.period}（${c.closed_at}）`).join('、')
+    : '尚无已结账期间。';
+  document.getElementById('closePreview').innerHTML = '';
+  document.getElementById('doCloseBtn').style.display = 'none';
+  document.getElementById('closeMsg').textContent = '';
+}
+
+async function previewClosing() {
+  const period = document.getElementById('closePeriod').value;
+  if (!period) return;
+  const msg = document.getElementById('closeMsg');
+  msg.textContent = '';
+  const r = await fetch(`/api/v1/closing/preview?period=${period}`);
+  const d = await r.json();
+  if (!r.ok) { document.getElementById('closePreview').innerHTML =
+    `<span style="color:#dc2626">${d.detail || '无法结账'}</span>`; return; }
+
+  let html = `<div style="font-size:13px;line-height:2">
+    本月收入 <b>¥${fmt(d.income_total)}</b>　支出 <b>¥${fmt(d.expense_total)}</b>
+    利润 <b style="color:${d.profit >= 0 ? '#059669' : '#dc2626'}">¥${fmt(d.profit)}</b></div>`;
+  if (d.plans.length) {
+    html += '<div style="margin-top:10px;font-size:13px"><b>将生成以下分录：</b><br>' +
+      d.plans.map(p => `　• [${p.type}] ${p.text}<br>` +
+        (p.note ? `　　<span style="color:#6b7280;font-size:12px">${p.note}</span>` : '')
+      ).join('') + '</div>';
+  } else {
+    html += '<div style="margin-top:10px;color:#6b7280;font-size:13px">本月没有需要结转的内容。</div>';
+  }
+  if (d.warn) html += `<div class="warn" style="margin-top:10px">⚠️ ${d.warn}</div>`;
+  document.getElementById('closePreview').innerHTML = html;
+  document.getElementById('doCloseBtn').style.display = 'inline-block';
+  document.getElementById('doCloseBtn').dataset.period = period;
+  document.getElementById('doCloseBtn').dataset.force = d.pending_count ? '1' : '0';
+}
+
+async function doClosing() {
+  const btn = document.getElementById('doCloseBtn');
+  const period = btn.dataset.period;
+  const force = btn.dataset.force === '1';
+  if (!confirm(`确定对 ${period} 执行结账？结账后本月账目不能再改。`)) return;
+  const msg = document.getElementById('closeMsg');
+  const r = await fetch(`/api/v1/closing?period=${period}&force=${force}`, {method:'POST'});
+  const d = await r.json();
+  if (r.ok && d.ok) {
+    msg.innerHTML = `<span style="color:#059669">✓ ${d.message}</span>`;
+    loadClosingPanel();
+  } else {
+    msg.innerHTML = `<span style="color:#dc2626">${d.detail || d.message || '结账失败'}</span>`;
+  }
+}
+
+// ---------- 财务分析（多智能体）----------
+async function loadAnalysis() {
+  // 指标是纯计算的，秒出——先把数字显示出来，AI 解读让用户按需触发
+  const d = await (await fetch('/api/v1/analysis/metrics')).json();
+  const p = d.profitability, s = d.solvency, e = d.efficiency, r = d.risk;
+  document.getElementById('anaCards').innerHTML = `
+    <div class="card"><div class="label">毛利率</div>
+      <div class="value">${p['毛利率']}%</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:4px">净利率 ${p['净利率']}%</div></div>
+    <div class="card"><div class="label">资产负债率</div>
+      <div class="value">${s['资产负债率']}%</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:4px">流动比率 ${s['流动比率']}</div></div>
+    <div class="card"><div class="label">赊销占比</div>
+      <div class="value">${e['赊销占比']}%</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:4px">应收周转 ${e['应收账款周转率']}</div></div>
+    <div class="card"><div class="label">客户集中度</div>
+      <div class="value ${r['客户集中度'] > 50 ? 'expense' : ''}">${r['客户集中度']}%</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:4px">
+        大额支出 ${r['大额支出笔数']} 笔</div></div>`;
+}
+
+async function runAnalysis() {
+  const msg = document.getElementById('anaMsg');
+  const btn = event.target;
+  btn.disabled = true;
+  msg.className = 'form-msg';
+  msg.textContent = '🧠 四个分析角色并行工作中…（约 30-60 秒，请稍候）';
+
+  try {
+    const r = await fetch('/api/v1/analysis/report', {method:'POST'});
+    const d = await r.json();
+    if (!r.ok) { msg.className='form-msg err'; msg.textContent = d.detail || '分析失败'; return; }
+
+    msg.className = 'form-msg ok';
+    msg.textContent = '✅ 分析完成';
+
+    document.getElementById('anaReport').style.display = 'block';
+    document.getElementById('anaReportBody').textContent = d.report;
+
+    const colors = { '盈利能力':'#059669', '偿债能力':'#2563eb',
+                     '营运能力':'#7c3aed', '风险排查':'#dc2626' };
+    document.getElementById('anaSections').innerHTML = Object.entries(d.sections).map(([k, v]) => `
+      <div class="chart-box" style="border-left:3px solid ${colors[k] || '#64748b'};margin-bottom:12px">
+        <div style="font-size:14px;font-weight:600;color:${colors[k] || '#334155'};margin-bottom:8px">
+          ${k} 分析师</div>
+        <div style="font-size:13px;line-height:1.9;color:#334155">${v}</div>
+      </div>`).join('');
+  } catch(e) {
+    msg.className = 'form-msg err';
+    msg.textContent = '分析失败：' + e;
+  } finally { btn.disabled = false; }
+}
+
+// ---------- 月末核对 ----------
+function switchChkTab(tab) {
+  document.querySelectorAll('#view-checkup .type-tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  ['cash', 'bank', 'stmt'].forEach(t => {
+    document.getElementById('chkTab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+async function loadCheckup() {
+  // ---- 现金 ----
+  const cb = await (await fetch('/api/v1/checkup/cash/balance')).json();
+  document.getElementById('cashBook').textContent = '¥' + fmt(cb.book_balance);
+  if (!document.getElementById('cashDate').value) {
+    document.getElementById('cashDate').value = new Date().toISOString().slice(0, 10);
+  }
+  const ch = await (await fetch('/api/v1/checkup/cash')).json();
+  document.getElementById('cashHistory').innerHTML = ch.items.length
+    ? ch.items.map(r => `
+      <tr>
+        <td>${r.date}</td>
+        <td style="text-align:right">${fmt(r.book_amount)}</td>
+        <td style="text-align:right">${fmt(r.actual_amount)}</td>
+        <td style="text-align:right;font-weight:600;color:${r.difference === 0 ? '#059669' : '#dc2626'}">
+          ${r.difference > 0 ? '+' : ''}${fmt(r.difference)}</td>
+        <td><span class="tag ${r.result === '相符' ? 'income' : 'expense'}">${r.result}</span></td>
+        <td style="color:#6b7280">${r.note || '—'}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px">还没有盘点记录</td></tr>`;
+
+  // ---- 银行 ----
+  const bb = await (await fetch('/api/v1/checkup/bank/balance')).json();
+  document.getElementById('bankBook').textContent = '¥' + fmt(bb.book_balance);
+  const bsel = document.getElementById('bankPeriod');
+  if (!bsel.options.length) {
+    const p = await (await fetch('/api/v1/closing/periods')).json();
+    bsel.innerHTML = p.available.slice().reverse()
+      .map(m => `<option value="${m}">${m}</option>`).join('');
+  }
+  const bh = await (await fetch('/api/v1/checkup/bank')).json();
+  document.getElementById('bankHistory').innerHTML = bh.items.length
+    ? bh.items.map(r => {
+        const adds = r.items_added.map(x => `+ ${x.desc} ${fmt(x.amount)}`).join('；') || '无';
+        const subs = r.items_subtracted.map(x => `- ${x.desc} ${fmt(x.amount)}`).join('；') || '无';
+        return `<div class="chart-box" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <b>${r.period}</b>
+            <span class="tag ${r.reconciled ? 'income' : 'expense'}">
+              ${r.reconciled ? '✓ 相符' : '✗ 差 ' + fmt(r.difference)}</span>
+          </div>
+          <div style="font-size:13px;color:#475569;margin-top:8px;line-height:1.9">
+            银行对账单 ${fmt(r.statement_balance)}<br>
+            加：${adds}<br>
+            减：${subs}<br>
+            <b>调节后 ${fmt(r.adjusted_balance)}</b>　|　企业账面 ${fmt(r.book_balance)}
+          </div></div>`;
+      }).join('')
+    : '<div style="color:#94a3b8;font-size:13px;padding:10px">还没有调节表</div>';
+
+  // ---- 往来单位下拉 ----
+  const cps = await (await fetch('/api/v1/counterparties')).json();
+  const ssel = document.getElementById('stmtCp');
+  if (!ssel.options.length) {
+    ssel.innerHTML = cps.items.map(c => `<option value="${c.id}">[${c.kind_cn}] ${c.name}</option>`).join('');
+  }
+}
+
+async function submitCashCheck() {
+  const msg = document.getElementById('cashMsg');
+  const actual = parseFloat(document.getElementById('cashActual').value);
+  const date = document.getElementById('cashDate').value;
+  if (isNaN(actual)) { msg.className='form-msg err'; msg.textContent='请填写实盘金额'; return; }
+  if (!date) { msg.className='form-msg err'; msg.textContent='请选择盘点日期'; return; }
+  const r = await fetch('/api/v1/checkup/cash', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({actual_amount: actual, date: date,
+      note: document.getElementById('cashNote').value.trim()})
+  });
+  const d = await r.json();
+  if (r.ok) {
+    const emoji = d.result === '相符' ? '✅' : (d.result === '盘盈' ? '📈' : '📉');
+    msg.className = 'form-msg ok';
+    msg.textContent = `${emoji} 盘点完成：账面 ${fmt(d.book_amount)}，实盘 ${fmt(d.actual_amount)}，` +
+      `差额 ${d.difference > 0 ? '+' : ''}${fmt(d.difference)} → ${d.result}`;
+    document.getElementById('cashActual').value = '';
+    document.getElementById('cashNote').value = '';
+    loadCheckup();
+  } else { msg.className='form-msg err'; msg.textContent = d.detail || '登记失败'; }
+}
+
+async function submitBankRecon() {
+  const msg = document.getElementById('bankMsg');
+  const stmt = parseFloat(document.getElementById('bankStatement').value);
+  if (isNaN(stmt)) { msg.className='form-msg err'; msg.textContent='请填写银行对账单余额'; return; }
+
+  const added = [], sub = [];
+  const aD = document.getElementById('bankAddDesc').value.trim();
+  const aA = parseFloat(document.getElementById('bankAddAmt').value);
+  if (aD && !isNaN(aA)) added.push({desc: aD, amount: aA});
+  const sD = document.getElementById('bankSubDesc').value.trim();
+  const sA = parseFloat(document.getElementById('bankSubAmt').value);
+  if (sD && !isNaN(sA)) sub.push({desc: sD, amount: sA});
+
+  const r = await fetch('/api/v1/checkup/bank', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({period: document.getElementById('bankPeriod').value,
+      statement_balance: stmt, items_added: added, items_subtracted: sub})
+  });
+  const d = await r.json();
+  if (r.ok) {
+    msg.className = 'form-msg ok';
+    msg.textContent = d.reconciled
+      ? `✅ 调节后 ${fmt(d.adjusted_balance)} = 企业账面 ${fmt(d.book_balance)}，相符`
+      : `⚠️ 调节后 ${fmt(d.adjusted_balance)}，企业账面 ${fmt(d.book_balance)}，差 ${fmt(d.difference)} —— 还有未达账项没找出来`;
+    loadCheckup();
+  } else { msg.className='form-msg err'; msg.textContent = d.detail || '编制失败'; }
+}
+
+async function loadStatement() {
+  const id = document.getElementById('stmtCp').value;
+  const start = document.getElementById('stmtStart').value;
+  const end = document.getElementById('stmtEnd').value;
+  let url = `/api/v1/checkup/statement/${id}`;
+  const qs = [];
+  if (start) qs.push('start=' + start);
+  if (end) qs.push('end=' + end);
+  if (qs.length) url += '?' + qs.join('&');
+
+  const d = await (await fetch(url)).json();
+  const box = document.getElementById('stmtBox');
+  box.style.display = 'block';
+  const cp = d.counterparty;
+  const kind = cp.kind === 'customer' ? '应收' : '应付';
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>对账单 · ${cp.name}（${cp.kind_cn}）</h3>
+      <a href="/api/v1/checkup/statement/${id}/text${qs.length ? '?' + qs.join('&') : ''}"
+         target="_blank" style="font-size:13px;text-decoration:none">
+        <button class="primary" style="padding:8px 14px;font-size:13px">🖨 打印版</button></a>
+    </div>
+    <div style="font-size:13px;color:#6b7280;margin:8px 0 14px">对账期间：${d.start} ~ ${d.end}</div>
+    <table style="margin-bottom:14px">
+      <tbody>
+        <tr><td>期初${kind}余额</td><td style="text-align:right">${fmt(d.opening_balance)}</td></tr>
+        <tr><td>本期新增（赊${cp.kind === 'customer' ? '销' : '购'}）</td>
+            <td style="text-align:right">${fmt(d.period_credit)}</td></tr>
+        <tr><td>本期现结</td><td style="text-align:right">${fmt(d.period_cash)}</td></tr>
+        <tr style="background:#f8fafc"><td style="font-weight:700">期末${kind}余额（估算）</td>
+            <td style="text-align:right;font-weight:700;color:#2563eb">${fmt(d.closing_balance)}</td></tr>
+      </tbody>
+    </table>
+    <div style="font-size:12px;color:#b45309;background:#fef3c7;padding:8px 12px;border-radius:6px">
+      ⚠️ ${d.note}</div>
+    <h3 style="font-size:14px;margin:16px 0 8px">本期交易明细（${d.entries.length} 笔）</h3>
+    <table>
+      <thead><tr><th>日期</th><th>摘要</th><th>科目</th><th style="text-align:right">金额</th></tr></thead>
+      <tbody>${d.entries.map(e => `
+        <tr><td>${e.date}</td><td>${e.description}</td>
+        <td>${e.category ? `<span class="tag">${e.category}</span>` : '—'}</td>
+        <td style="text-align:right">${fmt(e.amount)}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
+// ---------- 往来单位 ----------
+async function loadCounterparties() {
+  const d = await (await fetch('/api/v1/counterparties')).json();
+  document.getElementById('cpBody').innerHTML = d.items.map(c => `
+    <tr>
+      <td><span class="tag ${c.kind === 'customer' ? 'income' : 'expense'}">${c.kind_cn}</span></td>
+      <td>${c.name}</td>
+      <td style="text-align:right">${c.count}</td>
+      <td style="text-align:right;font-weight:600">¥${fmt(c.amount)}</td>
+      <td style="text-align:right;color:#b45309">${c.credit_amount ? '¥'+fmt(c.credit_amount) : '—'}</td>
+      <td>${c.last_date || '—'}</td>
+    </tr>`).join('');
+}
+
+function showAddCounterparty() {
+  document.getElementById('cpForm').style.display = 'block';
+}
+
+async function addCounterparty() {
+  const name = document.getElementById('cpName').value.trim();
+  const msg = document.getElementById('cpMsg');
+  if (!name) { msg.innerHTML = '<span style="color:#dc2626">请填写单位名称</span>'; return; }
+  const r = await fetch('/api/v1/counterparties', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name: name,
+      kind: document.getElementById('cpKind').value,
+      contact: document.getElementById('cpContact').value.trim(),
+    })
+  });
+  const d = await r.json();
+  if (r.ok && d.ok) {
+    msg.innerHTML = '<span style="color:#059669">✓ 已新增</span>';
+    document.getElementById('cpName').value = '';
+    document.getElementById('cpContact').value = '';
+    entryOptions = null;   // 让表单重新拉取下拉选项
+    loadCounterparties();
+  } else {
+    msg.innerHTML = `<span style="color:#dc2626">${d.detail || d.message || '失败'}</span>`;
+  }
+}
+
+// ---------- 记一笔账（表单，不走模型）----------
+let entryType = 'expense';
+let entryOptions = null;
+let parsedParty = null;   // 发票识别出的往来单位信息
+
+async function loadRecordForm() {
+  if (!entryOptions) {
+    entryOptions = await (await fetch('/api/v1/entries/options')).json();
+  }
+  // 凭证类型下拉（发票/收据/银行回单/工资表/内部凭证）
+  const vt = document.getElementById('fVoucherType');
+  if (vt && !vt.options.length) {
+    vt.innerHTML = (entryOptions.voucher_types || [])
+      .map(v => `<option value="${v.value}" title="${v.hint}">${v.label}</option>`).join('');
+  }
+  setType(entryType);
+  loadRecent();
+}
+
+function setType(t) {
+  entryType = t;
+  document.querySelectorAll('.type-tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === t));
+
+  // 往来单位：付款对着供应商，收款对着客户
+  const cpSel = document.getElementById('fCounterparty');
+  const list = t === 'income' ? (entryOptions.customers || [])
+                              : (entryOptions.suppliers || []);
+  const cpKindCn = t === 'income' ? '客户' : '供应商';
+  cpSel.innerHTML = `<option value="">— 不涉及 —</option>` +
+    list.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  const cpLabel = document.querySelector('#fCounterpartyWrap label');
+  if (cpLabel) cpLabel.textContent = `⑦ 往来单位（${cpKindCn}，可不填）`;
+
+  applyParty();   // 切换收/付后，重新应用发票识别出的往来单位
+}
+
+// 上传发票后自动识别，并把结果填进表单——人只需要核对
+async function onVoucherPicked() {
+  const fileInput = document.getElementById('fVoucher');
+  const box = document.getElementById('parseBox');
+  if (!fileInput.files.length) { box.className = 'parse-box'; return; }
+
+  box.className = 'parse-box show';
+  box.innerHTML = '🔍 正在识别发票内容…（约 20 秒，请稍候）';
+
+  const fd = new FormData();
+  fd.append('voucher', fileInput.files[0]);
+  try {
+    const r = await fetch('/api/v1/entries/parse-invoice', { method:'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) { box.innerHTML = '❌ ' + (d.detail || '识别失败，请手工填写'); return; }
+
+    const f = d.fields;
+    // ---- 自动填表 ----
+    if (f.amount > 0) document.getElementById('fAmount').value = f.amount;
+    const desc = (f.items || f.seller || '').slice(0, 60);
+    if (desc) document.getElementById('fDesc').value = desc;
+    if (f.date) document.getElementById('fDate').value = f.date;
+
+    // ---- 展示识别结果，提醒人工核对 ----
+    const rows = [
+      ['发票号', f.invoice_no || '—'],
+      ['开票日期', f.date || '—'],
+      ['销售方', f.seller || '—'],
+      ['商品/服务', f.items || '—'],
+      ['价税合计', f.amount ? '¥' + f.amount.toLocaleString('zh-CN', {minimumFractionDigits:2}) : '—'],
+      ['发票类型', f.invoice_type || '—'],
+    ];
+    box.innerHTML = '✅ <b>已识别，请核对下方内容</b><br>' +
+      rows.map(([k,v]) => `<span style="color:#64748b">${k}:</span> ${v}`).join('<br>') +
+      ((f.warnings && f.warnings.length)
+        ? `<div class="warn">⚠️ 需要你确认：${f.warnings.join('；')}</div>` : '') +
+      `<div class="warn" style="background:#e0f2fe;color:#0369a1">
+         科目不用你选——提交后由会计审核确定。</div>`;
+
+    // 往来单位：用发票上的销售方/购买方自动匹配档案
+    parsedParty = { seller: f.seller || '', buyer: f.buyer || '',
+                    seller_match: f.seller_match, buyer_match: f.buyer_match };
+    applyParty();
+  } catch(e) {
+    box.innerHTML = '❌ 识别失败：' + e + '（可手工填写）';
+  }
+}
+
+// 根据发票上的单位名，自动选中/提示往来单位
+function applyParty() {
+  if (!parsedParty) return;
+  const sel = document.getElementById('fCounterparty');
+  const hint = document.getElementById('partyHint');
+  const info = entryType === 'income'
+    ? { name: parsedParty.buyer,  match: parsedParty.buyer_match,  role: '客户' }
+    : { name: parsedParty.seller, match: parsedParty.seller_match, role: '供应商' };
+
+  if (info.match) {
+    // 档案里有 → 直接选中
+    const has = [...sel.options].some(o => o.value === String(info.match.id));
+    if (has) sel.value = String(info.match.id);
+    if (hint) hint.innerHTML = `<span style="color:#059669">✓ 已自动匹配${info.role}：${info.match.name}</span>`;
+  } else if (info.name) {
+    // 档案里没有 → 提交时自动建档，不打断出纳
+    if (hint) hint.innerHTML =
+      `<span style="color:#b45309">该${info.role}「${info.name}」不在档案里，提交后会自动建档</span>`;
+  } else if (hint) {
+    hint.innerHTML = '';
+  }
+}
+
+async function submitEntry() {
+  const amount = parseFloat(document.getElementById('fAmount').value);
+  const desc = document.getElementById('fDesc').value.trim();
+  const fileInput = document.getElementById('fVoucher');
+
+  if (!amount || amount <= 0) { showFormMsg('请填写正确的金额', false); return; }
+  if (!desc) { showFormMsg('请填写摘要（这笔钱是干什么的）', false); return; }
+  // 凭证是硬性要求：没有凭证不给记账
+  if (!fileInput.files.length) {
+    showFormMsg('❌ 请上传凭证（发票 / 收款回单）。白条入账税务不认，无法记账。', false);
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('entry_type', entryType);
+  fd.append('amount', amount);
+  fd.append('description', desc);
+  fd.append('voucher_type', document.getElementById('fVoucherType').value);
+  fd.append('date', document.getElementById('fDate').value || '');
+  fd.append('payment', document.getElementById('fPayment').value);
+  const cp = document.getElementById('fCounterparty').value;
+  if (cp) {
+    fd.append('counterparty_id', cp);
+  } else if (parsedParty) {
+    // 档案里没有这个单位 → 把名字带上，后端自动建档，不打断出纳
+    const name = entryType === 'income' ? parsedParty.buyer : parsedParty.seller;
+    if (name) fd.append('counterparty_name', name);
+  }
+  fd.append('voucher', fileInput.files[0]);
+
+  try {
+    const r = await fetch('/api/v1/entries', { method:'POST', body: fd });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      showFormMsg('✅ ' + d.message, true);
+      document.getElementById('fAmount').value = '';
+      document.getElementById('fDesc').value = '';
+      fileInput.value = '';
+      loadRecent();
+    } else {
+      showFormMsg('❌ ' + (d.detail || d.message || '记账失败'), false);
+    }
+  } catch(e) { showFormMsg('❌ 请求失败：' + e, false); }
+}
+
+function showFormMsg(text, ok) {
+  const m = document.getElementById('formMsg');
+  m.className = 'form-msg ' + (ok ? 'ok' : 'err');
+  m.textContent = text;
+}
+
+async function loadRecent() {
+  // 出纳要看两类：待审核（可撤回）+ 被驳回（要看原因、重新提交）
+  const [pend, rej] = await Promise.all([
+    (await fetch('/api/v1/stats/entries?status=pending&limit=10')).json(),
+    (await fetch('/api/v1/stats/entries?status=rejected&limit=10')).json(),
+  ]);
+  const box = document.getElementById('recentList');
+  let html = '';
+
+  // ---- 被驳回的：最重要，放最上面，要让出纳一眼看到 ----
+  if (rej.items.length) {
+    html += `<div style="font-size:13px;font-weight:600;color:#b91c1c;margin-bottom:8px">
+      ⚠️ 被会计驳回（${rej.items.length} 笔，需处理）</div>`;
+    html += rej.items.map(e => `
+      <div class="row" style="border-left:3px solid #dc2626;background:#fef2f2">
+        <span>
+          ${e.date}　[${e.entry_type === 'income' ? '收' : '付'}]　${e.description}
+          <div style="font-size:12px;color:#b91c1c;margin-top:4px">
+            驳回原因：${e.reject_reason || '未说明'}</div>
+        </span>
+        <span style="white-space:nowrap">
+          <b>¥${fmt(e.amount)}</b>
+          <button onclick="openEdit(${e.id})"
+            style="margin-left:8px;padding:4px 10px;font-size:12px;border:1px solid #3b82f6;
+                   border-radius:5px;background:#fff;color:#3b82f6;cursor:pointer">修改</button>
+        </span>
+      </div>`).join('');
+    html += '<div style="height:14px"></div>';
+  }
+
+  // ---- 待审核的 ----
+  html += `<div style="font-size:13px;font-weight:600;color:#b45309;margin-bottom:8px">
+    待会计审核（${pend.items.length} 笔）</div>`;
+  if (!pend.items.length) {
+    html += '<div style="font-size:13px;color:#94a3b8;padding:8px">暂无待审核单据。</div>';
+  } else {
+    html += pend.items.map(e => {
+      const v = e.attachment
+        ? `<a href="/api/v1/entries/${e.id}/voucher" target="_blank" title="查看凭证">📎</a>`
+        : '';
+      return `
+      <div class="row">
+        <span>${e.date}　[${e.entry_type === 'income' ? '收' : '付'}]　${e.description} ${v}</span>
+        <span><b>¥${fmt(e.amount)}</b>
+          <span class="x" onclick="undoEntry(${e.id})" title="撤回这笔">×</span></span>
+      </div>`;
+    }).join('');
+  }
+  box.innerHTML = html;
+}
+
+// ---------- 修改单据（被驳回后补正）----------
+async function openEdit(id) {
+  // 从明细里取这笔的数据来填表
+  const d = await (await fetch('/api/v1/stats/entries?limit=2000')).json();
+  const e = d.items.find(x => x.id === id);
+  if (!e) { alert('找不到这笔单据'); return; }
+
+  document.getElementById('eId').value = e.id;
+  document.getElementById('eType').value = e.entry_type === 'income' ? 'income' : 'expense';
+  document.getElementById('eAmount').value = e.amount;
+  document.getElementById('eDesc').value = e.description;
+  document.getElementById('eDate').value = e.date;
+  document.getElementById('ePayment').value = e.payment || '银行存款';
+  document.getElementById('eVoucher').value = '';
+  document.getElementById('eMsg').className = 'form-msg';
+  document.getElementById('eMsg').textContent = '';
+  document.getElementById('editMask').classList.add('show');
+}
+
+function closeEdit() {
+  document.getElementById('editMask').classList.remove('show');
+}
+
+async function submitEdit() {
+  const id = document.getElementById('eId').value;
+  const amount = parseFloat(document.getElementById('eAmount').value);
+  const desc = document.getElementById('eDesc').value.trim();
+  const msg = document.getElementById('eMsg');
+  if (!amount || amount <= 0) {
+    msg.className = 'form-msg err'; msg.textContent = '请填写正确的金额'; return;
+  }
+  if (!desc) {
+    msg.className = 'form-msg err'; msg.textContent = '请填写摘要'; return;
+  }
+
+  const fd = new FormData();
+  fd.append('amount', amount);
+  fd.append('description', desc);
+  fd.append('date', document.getElementById('eDate').value);
+  fd.append('payment', document.getElementById('ePayment').value);
+  fd.append('entry_type', document.getElementById('eType').value);
+  const v = document.getElementById('eVoucher').files[0];
+  if (v) fd.append('voucher', v);
+
+  const r = await fetch(`/api/v1/entries/${id}`, { method:'PATCH', body: fd });
+  const d = await r.json();
+  if (r.ok && d.ok) {
+    closeEdit();
+    loadRecent();      // 出纳页：这笔回到待审核
+    loadAccounting();  // 会计页：待审核队列会多一笔
+  } else {
+    msg.className = 'form-msg err';
+    msg.textContent = '❌ ' + (d.detail || d.message || '修改失败');
+  }
+}
+
+async function restoreEntry(id) {
+  const r = await fetch(`/api/v1/accounting/${id}/restore`, {method:'POST'});
+  const d = await r.json();
+  if (r.ok) { loadRecent(); }
+  else { alert(d.detail || d.message || '操作失败'); }
+}
+
+async function undoEntry(id) {
+  if (!confirm('确定撤销这笔账目？')) return;
+  const r = await fetch(`/api/v1/entries/${id}`, {method:'DELETE'});
+  if (r.ok) loadRecent();
+  else alert('撤销失败');
+}
+
+// ---------- 对话（含会话管理）----------
+const chatBox = document.getElementById('chatBox');
+const chatInput = document.getElementById('chatInput');
+let currentConvId = null;
+
+function addMsg(role, text) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  const b = document.createElement('div');
+  b.className = 'bubble'; b.textContent = text;
+  d.appendChild(b); chatBox.appendChild(d);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  return b;
+}
+
+// 在 AI 气泡上方插入动作标签，让用户看清 Agent 干了什么
+function addActions(msgDiv, toolCalls, kind) {
+  if (!toolCalls || !toolCalls.length) return;
+  const row = document.createElement('div');
+  row.className = 'act';
+  const seen = new Set();
+  toolCalls.forEach(t => {
+    const key = t.label + '|' + t.arg;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const sp = document.createElement('span');
+    sp.className = kind || 'chat';
+    sp.textContent = `${t.label}${t.arg ? '：' + t.arg : ''}`;
+    row.appendChild(sp);
+  });
+  msgDiv.parentNode.insertBefore(row, msgDiv);
+}
+
+// 快捷按钮只把示例填进输入框，**不自动发送**。
+// 用户必须先看清内容、改成真实金额，再自己点发送——
+// 否则会出现"点一下就把没发生的交易记进账本"的严重错误。
+function quick(text) {
+  chatInput.value = text;
+  chatInput.focus();
+  chatInput.select();   // 选中，方便直接改写数字
+}
+
+async function loadConversations() {
+  const d = await (await fetch('/api/v1/conversations')).json();
+  const box = document.getElementById('convList');
+  if (!d.items.length) {
+    box.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:8px">还没有对话</div>';
+    return;
+  }
+  box.innerHTML = d.items.map(c => `
+    <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
+      <span class="title">${c.title}</span>
+      <span class="del" onclick="event.stopPropagation();deleteConversation('${c.id}')">×</span>
+    </div>`).join('');
+}
+
+async function newConversation() {
+  const c = await (await fetch('/api/v1/conversations', {method:'POST'})).json();
+  currentConvId = c.id;
+  chatBox.innerHTML = '<div class="msg ai"><div class="bubble">新对话已开始，请说吧。</div></div>';
+  await loadConversations();
+  chatInput.focus();
+}
+
+async function openConversation(id) {
+  currentConvId = id;
+  const d = await (await fetch(`/api/v1/conversations/${id}/messages`)).json();
+  chatBox.innerHTML = '';
+  if (!d.items.length) {
+    addMsg('ai', '这个对话还没有消息。');
+  } else {
+    d.items.forEach(m => addMsg(m.role === 'user' ? 'user' : 'ai', m.content));
+  }
+  await loadConversations();
+}
+
+async function deleteConversation(id) {
+  await fetch(`/api/v1/conversations/${id}`, {method:'DELETE'});
+  if (id === currentConvId) {
+    currentConvId = null;
+    chatBox.innerHTML = '<div class="msg ai"><div class="bubble">请选择或新建一个对话。</div></div>';
+  }
+  await loadConversations();
+}
+
+function onChatFilePicked() {
+  const f = document.getElementById('chatFile').files[0];
+  const hint = document.getElementById('chatFileHint');
+  hint.textContent = f
+    ? `📎 已选凭证：${f.name} —— 现在可以说「帮我记账，买办公用品 320 元」`
+    : '';
+}
+
+async function sendChat() {
+  const msg = chatInput.value.trim();
+  const fileInput = document.getElementById('chatFile');
+  const file = fileInput.files[0];
+  // 没说话、也没传文件 → 不发
+  if (!msg && !file) return;
+  if (!currentConvId) await newConversation();
+
+  addMsg('user', msg + (file ? `\n📎 ${file.name}` : ''));
+  chatInput.value = '';
+  const btn = document.getElementById('sendBtn'); btn.disabled = true;
+  const bubble = addMsg('ai', '思考中…（可能需要几十秒）');
+  try {
+    // 用 FormData 才能带文件
+    const fd = new FormData();
+    fd.append('message', msg || '（这是凭证）');
+    fd.append('session_id', currentConvId);
+    if (file) fd.append('voucher', file);
+
+    const r = await fetch('/api/v1/chat', { method:'POST', body: fd });
+    const data = await r.json();
+    bubble.textContent = data.answer || data.message || data.detail || '出错了';
+    addActions(bubble.parentNode, data.tool_calls, data.kind);
+    fileInput.value = '';
+    document.getElementById('chatFileHint').textContent = '';
+    loadConversations();  // 标题可能更新了
+  } catch(e) { bubble.textContent = '请求失败：' + e; }
+  finally { btn.disabled = false; chatInput.focus(); }
+}
+chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+// 首次加载：拉会话列表 + 待审核数量
+loadConversations();
+updatePendingBadge();
+
+// ---------- 公司概况 ----------
+async function loadCompany() {
+  const c = await (await fetch('/api/v1/company')).json();
+  const ov = await (await fetch('/api/v1/stats/overview')).json();
+
+  document.getElementById('companyHeader').innerHTML = `
+    <div class="chart-box" style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff">
+      <div style="font-size:22px;font-weight:700">${c.name}</div>
+      <div style="font-size:13px;color:#94a3b8;margin-top:6px">
+        ${c.industry} · 小微企业</div>
+    </div>`;
+
+  const rows = [
+    ['所属行业', c.industry],
+    ['主营业务', c.main_business],
+  ];
+  document.getElementById('companyInfo').innerHTML = `
+    <div class="chart-box">
+      <h3>基本信息</h3>
+      <table><tbody>${rows.map(([k,v]) => `
+        <tr><td style="width:180px;color:#64748b">${k}</td><td style="font-weight:500">${v}</td></tr>
+      `).join('')}</tbody></table>
+    </div>`;
+
+  document.getElementById('companyBiz').innerHTML = `
+    <div class="chart-box">
+      <h3>业务说明</h3>
+      <p style="font-size:14px;line-height:1.9;color:#334155;white-space:pre-wrap">${c.description}</p>
+    </div>`;
+
+  document.getElementById('companyFinance').innerHTML = `
+    <h3>经营概览</h3>
+    <div class="cards" style="margin-top:12px">
+      <div class="card"><div class="label">账目笔数</div><div class="value">${ov.total_entries}</div></div>
+      <div class="card"><div class="label">收入合计</div>
+        <div class="value income">¥${fmt(ov.total_income)}</div></div>
+      <div class="card"><div class="label">支出合计</div>
+        <div class="value expense">¥${fmt(ov.total_expense)}</div></div>
+      <div class="card"><div class="label">净利</div>
+        <div class="value ${ov.net >= 0 ? 'income' : 'expense'}">¥${fmt(ov.net)}</div></div>
+    </div>`;
+}
+
+// ---------- 总览 ----------
+const fmt = n => n.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+async function loadOverview() {
+  const d = await (await fetch('/api/v1/stats/overview')).json();
+  document.getElementById('statCards').innerHTML = `
+    <div class="card"><div class="label">账目笔数</div><div class="value">${d.total_entries}</div></div>
+    <div class="card"><div class="label">收入合计</div><div class="value income">¥${fmt(d.total_income)}</div></div>
+    <div class="card"><div class="label">支出合计</div><div class="value expense">¥${fmt(d.total_expense)}</div></div>
+    <div class="card"><div class="label">结余</div><div class="value net">¥${fmt(d.net)}</div></div>`;
+}
+let chartM = null, chartC = null;
+async function loadMonthlyChart() {
+  const d = await (await fetch('/api/v1/stats/monthly')).json();
+  chartM = chartM || echarts.init(document.getElementById('chartMonthly'));
+  chartM.setOption({
+    tooltip:{trigger:'axis'}, legend:{data:['收入','支出'],top:0},
+    grid:{left:70,right:30,top:40,bottom:30},
+    xAxis:{type:'category',data:d.months},
+    yAxis:{type:'value',axisLabel:{formatter:v=>(v/10000)+'万'}},
+    series:[
+      {name:'收入',type:'line',smooth:true,data:d.income,itemStyle:{color:'#059669'},areaStyle:{opacity:.08}},
+      {name:'支出',type:'line',smooth:true,data:d.expense,itemStyle:{color:'#dc2626'},areaStyle:{opacity:.08}}
+    ]
+  });
+}
+async function loadCategoryChart() {
+  const d = await (await fetch('/api/v1/stats/by-category')).json();
+  chartC = chartC || echarts.init(document.getElementById('chartCategory'));
+  chartC.setOption({
+    tooltip:{trigger:'item',formatter:'{b}<br/>¥{c} ({d}%)'},
+    legend:{type:'scroll',bottom:0},
+    series:[{type:'pie',radius:['42%','68%'],center:['50%','46%'],
+      data:d.items,label:{formatter:'{b}\n{d}%',fontSize:11}}]
+  });
+}
+
+// ---------- 账户余额 ----------
+async function loadBalances() {
+  const d = await (await fetch('/api/v1/stats/balances')).json();
+  document.getElementById('balanceCards').innerHTML = `
+    <div class="card"><div class="label">流动资金（现金 + 银行）</div>
+      <div class="value net">¥${fmt(d.working_capital)}</div></div>`;
+
+  const groups = [
+    ['资产', d.assets, d.total_assets],
+    ['负债', d.liabilities, null],
+    ['所有者权益', d.equity, d.total_liabilities_equity],
+    ['收入', d.revenue, null],
+    ['费用', d.expenses, null]
+  ];
+  document.getElementById('balanceTables').innerHTML = groups
+    .filter(([_, items]) => items && items.length)
+    .map(([title, items, total]) => `
+      <div class="chart-box" style="margin-bottom:14px">
+        <h3>${title}</h3>
+        <table><thead><tr><th>科目</th><th style="text-align:right">余额（元）</th></tr></thead>
+        <tbody>
+          ${items.map(a => `<tr><td>${a.account}</td>
+            <td style="text-align:right;font-weight:600">${fmt(a.balance)}</td></tr>`).join('')}
+          ${total !== null && total !== undefined ? `
+          <tr style="background:#f8fafc"><td style="font-weight:700">
+            ${title === '资产' ? '资产合计' : '负债 + 所有者权益合计'}</td>
+            <td style="text-align:right;font-weight:700;color:#2563eb">${fmt(total)}</td></tr>` : ''}
+        </tbody></table>
+      </div>`).join('');
+
+  const ok = d.balance_sheet_ok;
+  document.getElementById('trialBox').innerHTML = `
+    <h3>会计恒等式检查</h3>
+    <p style="font-size:14px;line-height:1.9">
+      资产合计：<b>¥${fmt(d.total_assets)}</b><br>
+      负债 + 所有者权益：<b>¥${fmt(d.total_liabilities_equity)}</b><br>
+      <span style="color:${ok ? '#059669' : '#dc2626'};font-weight:600">
+        ${ok ? '✓ 资产 = 负债 + 所有者权益，账务平衡' : '✗ 不配平，账务有误'}</span>
+    </p>
+    <p style="font-size:12px;color:#6b7280;margin-top:10px">
+      这是会计恒等式：企业的全部资产，必然等于「欠别人的（负债）」加上「股东自己的（权益）」。
+      任何记账错误都会让这个等式失衡。
+    </p>`;
+}
+
+// ---------- 明细 ----------
+async function loadEntries() {
+  const cat = document.getElementById('filterCategory').value;
+  const url = '/api/v1/stats/entries?limit=200' + (cat ? '&category=' + encodeURIComponent(cat) : '');
+  const d = await (await fetch(url)).json();
+  document.getElementById('entriesCount').textContent = `共 ${d.items.length} 条`;
+  document.getElementById('entriesBody').innerHTML = d.items.map(e => {
+    // 有凭证的显示可点击的 📎，点击打开原件；没有的显示灰色提示
+    const voucher = e.attachment
+      ? `<a href="/api/v1/entries/${e.id}/voucher" target="_blank"
+            title="查看凭证原件" style="text-decoration:none;font-size:15px">📎</a>`
+      : `<span style="color:#cbd5e1;font-size:12px" title="无凭证（历史数据）">—</span>`;
+    // 状态标签：待审核/已入账/已驳回
+    const st = e.status || 'approved';
+    const stColor = st === 'approved' ? 'income' : (st === 'pending' ? '' : 'expense');
+    const stStyle = st === 'pending'
+      ? 'background:#fef3c7;color:#b45309' : '';
+    return `
+    <tr><td>${e.date}</td><td>${e.description}</td>
+    <td>${e.category ? `<span class="tag">${e.category}</span>` : '<span style="color:#cbd5e1">待会计定</span>'}</td>
+    <td>${e.debit_account || '—'}</td><td>${e.credit_account || '—'}</td>
+    <td style="text-align:center"><span class="tag ${stColor}" style="${stStyle}">${e.status_cn || '—'}</span></td>
+    <td style="text-align:center">${voucher}</td>
+    <td style="text-align:right;font-weight:600">¥${fmt(e.amount)}</td>
+    <td style="text-align:center">
+      <span style="cursor:pointer;color:#cbd5e1" title="删除这笔"
+        onclick="deleteEntry(${e.id})">×</span></td></tr>`;
+  }).join('');
+
+  if (!document.getElementById('filterCategory').dataset.filled) {
+    const cats = [...new Set(d.items.map(e => e.category))].sort();
+    cats.forEach(c => {
+      const o = document.createElement('option'); o.value = c; o.textContent = c;
+      document.getElementById('filterCategory').appendChild(o);
+    });
+    document.getElementById('filterCategory').dataset.filled = '1';
+  }
+}
+
+// ---------- 删除账目 ----------
+async function deleteEntry(id) {
+  if (!confirm('确定删除这笔账目？删除后无法恢复。')) return;
+  const r = await fetch(`/api/v1/stats/entries/${id}`, {method:'DELETE'});
+  const d = await r.json();
+  if (d.ok) { loadEntries(); loadOverview(); }
+  else { alert(d.message || '删除失败'); }
+}
+
+// ---------- 对账 ----------
+async function runReconcile() {
+  const box = document.getElementById('reconcileResult');
+  box.textContent = '对账中…';
+  try {
+    const r = await fetch('/api/v1/stats/reconcile', {method:'POST'});
+    const d = await r.json();
+    box.textContent = d.report || JSON.stringify(d);
+  } catch(e) { box.textContent = '失败：' + e; }
+}
+</script>
+</body>
+</html>

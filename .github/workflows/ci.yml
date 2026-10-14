@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: 单元测试
+        # 全部测试均为离线用例（模型调用走桩、检索不联网），不需要任何 API key。
+        # 这是刻意保证的：CI 一旦依赖外部服务，就没人会去维护它。
+        run: python -m pytest tests/ -q
+
+      - name: 装配冒烟
+        # 不起服务、不调模型，只验证「所有零件能拼起来、工具接线没断」。
+        # 本项目踩过工具名对得上但参数名对不上的坑，这一步就是拦它的。
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from finharness.assemble import build_harness
+          b = build_harness()
+          print('工具', len(b['registry'].names()), '| 技能', len(b['skills'].skills),
+                '| 子 Agent', len(b['runner'].specs), '| MCP', len(b['mcp_tools']))
+          "
+
+      - name: 内控审计
+        # 13 类违规操作逐条真调一遍，全部必须被拦住。
+        # 全离线：不调模型、跑在临时账套副本上，所以可以进 CI。
+        run: python scripts/audit_controls.py
+
+      - name: 服务能起、路由齐全
+        # 业务接口和运行时接口共用一个 app，装配失败在本地只在点开页面时才暴露，
+        # 所以这里显式检查一遍：api_v1 要挂上，审批工具要标记出来。
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from finharness.server.app import app
+          paths = {r.path for r in app.routes}
+          assert '/api/v1/chat' in paths, '业务接口没挂上'
+          assert '/runs/{run_id}/events' in paths, '运行时 SSE 接口不在'
+          assert '/console' in paths and '/' in paths, '两个界面入口缺一'
+          print('路由', len(paths), '条 |', '业务 + 运行时 均已装配')
+          "

@@ -1,0 +1,7 @@
+本目录的 corpus.jsonl 来自姊妹项目 finance-rag-eval 的语料清洗产物：
+  财政部会计司官网 549 份准则/制度/解读原文（01_clean_corpus.py 清洗后的结果）
+
+两个项目共用同一份知识库：
+  finance-rag-eval  专门评测这份语料的检索质量（切分/召回/重排/消融）
+  本项目            把它当 Agent 的知识工具用
+换语料时同步两边的 data/corpus.jsonl 即可。
