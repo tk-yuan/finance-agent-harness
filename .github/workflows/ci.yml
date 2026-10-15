@@ -73,3 +73,41 @@ jobs:
               assert need in paths, '缺少路由 ' + need
           print('路由', len(paths), '条 | 业务 + 运行时 均已装配')
           "
+
+  docker:
+    # README 承诺"克隆下来一键起服务"，那就得有人真的构建并起一次。
+    # 本地 Docker Desktop 起不来（secrets engine 的 socket 损坏），
+    # 所以这一步交给 CI——runner 自带 Docker，而且每次提交都会真跑。
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建镜像
+        run: docker build -t finance-agent-harness:ci .
+
+      - name: 镜像里能起服务并响应
+        # 不配 API key 也能过：/health 是探针，不碰模型。
+        run: |
+          docker run -d --name h -p 8000:8000 finance-agent-harness:ci
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health > /tmp/health.json; then ok=1; break; fi
+            sleep 2
+          done
+          docker logs h | tail -20
+          if [ "$ok" != "1" ]; then
+            echo "::error::容器起来了但 /health 一直没响应"
+            exit 1
+          fi
+          echo "健康检查通过："; cat /tmp/health.json
+
+      - name: 两个界面入口都在
+        run: |
+          curl -sf -o /dev/null http://127.0.0.1:8000/          || { echo "::error::业务界面 404"; exit 1; }
+          curl -sf -o /dev/null http://127.0.0.1:8000/console    || { echo "::error::控制台 404"; exit 1; }
+          echo "业务界面 / 与运行时控制台 /console 均可访问"
+
+      - name: 收尾
+        if: always()
+        run: docker rm -f h || true
