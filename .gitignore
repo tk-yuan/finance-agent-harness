@@ -12,3 +12,6 @@ workspace/
 .vscode/
 .idea/
 .DS_Store
+
+# 测试/审计脚本产生的临时凭证，跑完会自己删；万一残留也别进仓库
+data/attachments/_*.png

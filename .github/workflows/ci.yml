@@ -48,13 +48,28 @@ jobs:
       - name: 服务能起、路由齐全
         # 业务接口和运行时接口共用一个 app，装配失败在本地只在点开页面时才暴露，
         # 所以这里显式检查一遍：api_v1 要挂上，审批工具要标记出来。
+        #
+        # 注意别只遍历 app.routes 取 .path：FastAPI 新版本里 include_router 挂进去的是
+        # _IncludedRouter，没有 .path 属性（本地旧版本有，所以本机过、CI 挂）。
+        # 这里递归展开，兼容两种形态。
         run: |
           python -c "
           import sys; sys.path.insert(0, 'src')
           from finharness.server.app import app
-          paths = {r.path for r in app.routes}
-          assert '/api/v1/chat' in paths, '业务接口没挂上'
-          assert '/runs/{run_id}/events' in paths, '运行时 SSE 接口不在'
-          assert '/console' in paths and '/' in paths, '两个界面入口缺一'
-          print('路由', len(paths), '条 |', '业务 + 运行时 均已装配')
+
+          def collect(routes):
+              out = set()
+              for r in routes:
+                  p = getattr(r, 'path', None)
+                  if p:
+                      out.add(p)
+                  sub = getattr(r, 'routes', None)
+                  if sub:
+                      out |= collect(sub)
+              return out
+
+          paths = collect(app.routes) | set(app.openapi().get('paths', {}))
+          for need in ('/api/v1/chat', '/runs/{run_id}/events', '/console', '/'):
+              assert need in paths, '缺少路由 ' + need
+          print('路由', len(paths), '条 | 业务 + 运行时 均已装配')
           "

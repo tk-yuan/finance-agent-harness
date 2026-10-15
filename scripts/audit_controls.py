@@ -28,6 +28,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Windows 控制台默认是 GBK，打不出 ✓/✗ 会直接 UnicodeEncodeError 崩掉。
+# 审计脚本要在本机和 Linux CI 上都能跑，所以显式把输出钉成 UTF-8。
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # 老版本 Python 或已被重定向
+        pass
+
 # 必须在 import finharness 之前把库指到临时副本——审计会写数据，不能污染演示账套
 _TMP = Path(tempfile.mkdtemp(prefix="fin_audit_"))
 _DB = _TMP / "audit.db"
@@ -47,7 +55,9 @@ from finharness.tools import ledger as L  # noqa: E402
 
 init_db()
 
-# 审计用凭证：真实建一个文件，好让"金额/方向"那几条能走到后面的校验
+# 审计用凭证：真实建一个文件，好让"金额/方向"那几条能走到后面的校验。
+# 必须建在 data/attachments/ 下（submit_voucher 只认这个目录），所以跑完要删掉——
+# 否则会在仓库里留下一个测试残留文件。
 L.ATTACH_DIR.mkdir(parents=True, exist_ok=True)
 _VOUCHER = L.ATTACH_DIR / "_audit_voucher.png"
 _VOUCHER.write_bytes(b"\x89PNG\r\n\x1a\n")
@@ -194,6 +204,15 @@ SCENARIOS = [
 
 
 def main() -> None:
+    try:
+        _run()
+    finally:
+        # 凭证建在仓库的 data/attachments/ 下，跑完（哪怕中途报错）都必须删掉
+        _VOUCHER.unlink(missing_ok=True)
+        shutil.rmtree(_TMP, ignore_errors=True)
+
+
+def _run() -> None:
     print("=" * 64)
     print("内控审计：逐条尝试违规操作，看系统拦不拦得住")
     print("=" * 64)
@@ -242,7 +261,6 @@ def main() -> None:
         for f in failed:
             print(f"  · {f}")
 
-    shutil.rmtree(_TMP, ignore_errors=True)
     raise SystemExit(0 if passed == total else 1)
 
 

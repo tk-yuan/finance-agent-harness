@@ -7,10 +7,23 @@ python-dotenv>=1.2,<2   # 读 .env
 fastapi>=0.115,<1
 uvicorn>=0.30,<1
 pydantic>=2.0,<3
+python-multipart>=0.0.9    # 聊天接口用 Form/File 收凭证，FastAPI 缺它会直接拒绝启动
 sse-starlette>=3.0,<4   # 可选：本项目用原生 StreamingResponse 实现 SSE，未强依赖
+
+# 数据层与业务能力
+# 这几个曾经漏写：本机开发环境碰巧装着，CI 干净环境装不上，
+# 结果是 build_harness 一导入就 ModuleNotFoundError，测试整个收集失败。
+sqlalchemy>=2.0,<3      # 账套 ORM（domain/db）
+openpyxl>=3.1,<4        # 导出 Excel 报表（services/export_service）
+pypdf>=5,<7             # 读取发票 PDF（services/invoice_service）
+openai>=1,<3            # 发票识别的多模态调用（services/invoice_service）
 
 # 开发
 # pytest>=8
+
+# 对比一下：如果用 LangGraph 搭同样的东西，依赖会是
+# langgraph + langchain-core + langchain-community + ... 以及它们背后的一整棵依赖树。
+# 本项目要交付的恰恰是框架替你做的那些部分，所以不用它。
 
 # 对比一下：如果用 LangGraph 搭同样的东西，依赖会是
 # langgraph + langchain-core + langchain-community + ... 以及它们背后的一整棵依赖树。
