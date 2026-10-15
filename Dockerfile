@@ -4,10 +4,10 @@
 # 别人机器上可能是 3.11，或者 pip 装的时候版本冲突。镜像把这些差异抹平了。
 FROM python:3.13-slim
 
-# numpy 的 wheel **不自带 BLAS**：它的 _umath_linalg.so 运行时链接系统 libblas/liblapack/libgfortran，
-# 而 slim 基础镜像里没有这些，`import numpy` 会直接报 "cannot open shared object file"。
-# 这个坑本地看不出来（开发机早就有这些库），是加了 CI 的 docker job 才暴露的：
-# 镜像能构建成功，但容器一起来就退出，/health 永远探不到。
+# numpy 的 wheel **不自带 BLAS**：它的 _umath_linalg.so 运行时链接系统
+# libblas/liblapack/libgfortran（`ldd` 可验），而 python:slim 基础镜像不保证有这些库。
+# 缺了就是 `import numpy` 直接报 cannot open shared object file，应用根本起不来。
+# 本地看不出来——开发机上这些库早被别的包带进来了。
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libblas3 liblapack3 libgfortran5 \

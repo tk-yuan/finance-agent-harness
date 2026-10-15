@@ -97,7 +97,7 @@ jobs:
           echo "--- 主机 8000 端口占用情况 ---"
           ss -ltn 2>/dev/null | grep ':8000' || echo "（8000 空闲）"
 
-          docker run -d --name h -p 8000:8000 finance-agent-harness:ci 2>/tmp/runerr
+          docker run -d --name harness -p 8000:8000 finance-agent-harness:ci 2>/tmp/runerr
           rc=$?
           if [ $rc -ne 0 ]; then
             echo "::error::docker run 失败，退出码 $rc"
@@ -114,7 +114,7 @@ jobs:
           if [ "$ok" != "1" ]; then
             echo "::error::容器已启动但 /health 60 秒内没响应"
             echo "docker ps -a:"; docker ps -a | diag
-            echo "容器日志（末 40 行）:"; docker logs h 2>&1 | tail -40 | diag
+            echo "容器日志（末 40 行）:"; docker logs harness 2>&1 | tail -40 | diag
             exit 1
           fi
           echo "健康检查通过：$(cat /tmp/health.json)"
@@ -128,4 +128,4 @@ jobs:
 
       - name: 收尾
         if: always()
-        run: docker rm -f h || true
+        run: docker rm -f harness || true
