@@ -88,24 +88,42 @@ jobs:
 
       - name: 镜像里能起服务并响应
         # 不配 API key 也能过：/health 是探针，不碰模型。
+        #
+        # 失败时把诊断逐行打成 annotation：workflow 日志下载要仓库 admin 权限，
+        # 而 annotation 是公开可读的——这是排查时唯一看得见的窗口。
         run: |
-          docker run -d --name h -p 8000:8000 finance-agent-harness:ci
+          diag() { while IFS= read -r l; do echo "::error::$l"; done; }
+          set +e
+          echo "--- 主机 8000 端口占用情况 ---"
+          ss -ltn 2>/dev/null | grep ':8000' || echo "（8000 空闲）"
+
+          docker run -d --name h -p 8000:8000 finance-agent-harness:ci 2>/tmp/runerr
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "::error::docker run 失败，退出码 $rc"
+            echo "runerr:"; cat /tmp/runerr | diag
+            echo "docker ps -a:"; docker ps -a | diag
+            exit 1
+          fi
+
           ok=0
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8000/health > /tmp/health.json; then ok=1; break; fi
             sleep 2
           done
-          docker logs h | tail -20
           if [ "$ok" != "1" ]; then
-            echo "::error::容器起来了但 /health 一直没响应"
+            echo "::error::容器已启动但 /health 60 秒内没响应"
+            echo "docker ps -a:"; docker ps -a | diag
+            echo "容器日志（末 40 行）:"; docker logs h 2>&1 | tail -40 | diag
             exit 1
           fi
-          echo "健康检查通过："; cat /tmp/health.json
+          echo "健康检查通过：$(cat /tmp/health.json)"
 
       - name: 两个界面入口都在
         run: |
-          curl -sf -o /dev/null http://127.0.0.1:8000/          || { echo "::error::业务界面 404"; exit 1; }
-          curl -sf -o /dev/null http://127.0.0.1:8000/console    || { echo "::error::控制台 404"; exit 1; }
+          diag() { while IFS= read -r l; do echo "::error::$l"; done; }
+          curl -sf -o /dev/null http://127.0.0.1:8000/        || { echo "::error::业务界面 / 不可访问"; exit 1; }
+          curl -sf -o /dev/null http://127.0.0.1:8000/console  || { echo "::error::控制台 /console 不可访问"; exit 1; }
           echo "业务界面 / 与运行时控制台 /console 均可访问"
 
       - name: 收尾
