@@ -52,6 +52,21 @@ TOOL_LABELS: dict[str, tuple[str, str]] = {
     "run_workflow": ("跑固定流程", "workflow"),
     "write_file": ("写文件", "fs"),
     "read_file": ("读文件", "fs"),
+    "ask_user": ("向你提问", "ask"),
+    "task_board": ("看任务板", "delegate"),
+    "list_pending": ("查待审核", "query"),
+    "list_closed_periods": ("查已结账期间", "query"),
+    "list_dir": ("列目录", "fs"),
+    "search_files": ("搜文件", "fs"),
+    "load_skill": ("加载技能", "chat"),
+    "list_schedules": ("查定时任务", "background"),
+    "run_schedules_now": ("立即跑定时任务", "background"),
+    "send_message": ("给队友发消息", "team"),
+    "shutdown_teammate": ("解散队友", "team"),
+    "mcp_rule_detail": ("查规则详情", "query"),
+    "mcp_rule_stats": ("查规则统计", "query"),
+    "mcp_to_capital": ("金额转大写", "query"),
+    "mcp_yuan_to_wan": ("元转万元", "query"),
 }
 
 # 需要人工审批、因此在同步聊天里会被拒绝的工具
@@ -84,6 +99,22 @@ class _RejectingGate:
         req.status = "rejected"
         req.note = NEEDS_APPROVAL_HINT.get(
             tool_name, "该操作需要人工确认，请在界面上完成。")
+        return req
+
+    def ask(self, question: str, options=None, tool_name: str = "ask_user"):
+        """同步聊天里没法中途停下来问用户——直接返回"没问到"。
+
+        这不是缺陷：网页聊天是一问一答的同步请求，HTTP 连接不能挂在那儿等人打字。
+        工具拿到这个结果会降级成"基于现有信息合理假设并显式标注"。
+        想真的回答 Agent 的提问，去**运行时控制台**——那儿是异步的，能停下来等。
+        """
+        from ..runtime.approval import ApprovalRequest
+        req = ApprovalRequest(id="sync-noanswer", tool=tool_name, args={},
+                              reason="同步聊天无法暂停等待用户回答",
+                              risk="low", kind="question",
+                              question=question, options=list(options or []))
+        req.status = "timeout"
+        req.note = "同步聊天里无法暂停等待回答"
         return req
 
     def history(self):

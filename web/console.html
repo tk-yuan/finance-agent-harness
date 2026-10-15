@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="zh">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent 运行时控制台</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#fff; --line:#e5e7eb; --line2:#eef0f3;
+  --fg:#1f2328; --dim:#6b7280; --faint:#9aa1ab;
+  --blue:#2563eb; --blue-bg:#eff4ff;
+  --green:#059669; --green-bg:#ecfdf5;
+  --orange:#d97706; --orange-bg:#fffbeb;
+  --red:#dc2626;  --red-bg:#fef2f2;
+  --purple:#7c3aed; --purple-bg:#f5f3ff;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:13.5px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;}
+
+/* ── 顶栏：先告诉人这页是干什么的 ── */
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 22px;}
+.hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+.sub{color:var(--dim);font-size:12.5px}
+.env{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tag{background:var(--line2);color:var(--dim);border-radius:6px;padding:2px 9px;font-size:12px;}
+.tag b{color:var(--fg);font-weight:600}
+
+/* ── 布局 ── */
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 288px;gap:18px;
+  padding:18px 22px 60px;max-width:1500px;margin:0 auto;align-items:start}
+@media(max-width:1000px){.wrap{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
+.card>h2{margin:0;padding:11px 15px;font-size:13px;font-weight:620;
+  border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:8px}
+.card>h2 .hint{font-weight:400;color:var(--faint);font-size:12px;margin-left:auto}
+.pad{padding:14px 15px}
+
+/* ── 发起任务 ── */
+.run-bar{display:flex;gap:9px}
+.run-bar input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+  font:inherit;background:#fcfcfd}
+.run-bar input:focus{outline:none;border-color:var(--blue);background:#fff;
+  box-shadow:0 0 0 3px var(--blue-bg)}
+button{font:inherit;border:1px solid transparent;border-radius:8px;padding:9px 18px;
+  cursor:pointer;background:var(--blue);color:#fff;font-weight:560}
+button:hover{filter:brightness(1.06)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.ghost{background:#fff;color:var(--fg);border-color:var(--line)}
+button.ok{background:var(--green)}
+button.no{background:#fff;color:var(--red);border-color:#f3c8c8}
+.presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.preset{background:#fff;border:1px solid var(--line);border-radius:20px;
+  padding:4px 12px;font-size:12.5px;color:var(--dim);cursor:pointer}
+.preset:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── 需要你处理：全场最显眼的东西 ── */
+.ask{border:1.5px solid var(--orange);background:var(--orange-bg)}
+.ask>h2{border-bottom-color:#f6e0b8;color:#92400e}
+.ask .pulse{width:8px;height:8px;border-radius:50%;background:var(--orange);
+  animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.q-text{font-size:14px;line-height:1.65;margin:2px 0 12px;white-space:pre-wrap}
+.q-opt{display:inline-block;background:#fff;border:1px solid #f0d9a8;border-radius:16px;
+  padding:4px 12px;margin:0 6px 6px 0;cursor:pointer;font-size:12.5px}
+.q-opt:hover{border-color:var(--orange);color:#92400e}
+.q-ans{display:flex;gap:8px;margin-top:10px}
+.q-ans input{flex:1;padding:8px 11px;border:1px solid #f0d9a8;border-radius:8px;font:inherit}
+.q-ans input:focus{outline:none;border-color:var(--orange)}
+.countdown{color:#92400e;font-size:12.5px;font-variant-numeric:tabular-nums}
+.risk{font-size:11.5px;border-radius:5px;padding:1px 7px;font-weight:600}
+.risk.high{background:var(--red-bg);color:var(--red)}
+.risk.medium{background:var(--orange-bg);color:var(--orange)}
+.risk.low{background:var(--green-bg);color:var(--green)}
+.kv{font-size:12.5px;color:var(--dim);margin:3px 0}
+.kv code{background:#fff;border:1px solid var(--line);border-radius:4px;
+  padding:1px 6px;color:var(--fg);font-size:12px}
+
+/* ── 执行链路 ── */
+.turn{border-left:2px solid var(--line);margin:0 0 14px 7px;padding:0 0 2px 16px;position:relative}
+.turn:last-child{margin-bottom:0}
+.turn::before{content:"";position:absolute;left:-6px;top:7px;width:10px;height:10px;
+  border-radius:50%;background:#fff;border:2px solid var(--blue)}
+.turn-hd{font-weight:620;font-size:12.5px;color:var(--blue);margin-bottom:7px}
+.turn-hd span{color:var(--faint);font-weight:400;margin-left:6px}
+.think{background:#fafbfc;border:1px solid var(--line2);border-radius:8px;
+  padding:8px 11px;font-size:12.5px;color:var(--dim);margin-bottom:7px}
+.think b{color:var(--fg);font-weight:600}
+.planned{margin-top:5px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--blue-bg);color:#1d4ed8;border-radius:5px;padding:1px 8px;font-size:12px}
+.tool{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px}
+.tool .dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex:none}
+.tool.bad .dot{background:var(--red)}
+.tool .nm{font-weight:560}
+.tool .ar{color:var(--faint);font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%}
+.tool .ms{margin-left:auto;color:var(--faint);font-variant-numeric:tabular-nums;flex:none}
+.evt{font-size:12px;color:var(--purple);background:var(--purple-bg);
+  border-radius:6px;padding:4px 10px;margin:6px 0;display:inline-block}
+
+/* ── 结论：用 markdown 渲染 ── */
+.md{font-size:13.5px;line-height:1.72;word-wrap:break-word}
+.md h1{font-size:16px;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+.md h2{font-size:14.5px;margin:15px 0 7px}
+.md h3{font-size:13.5px;margin:12px 0 6px;color:#374151}
+.md p{margin:7px 0}
+.md ul,.md ol{margin:7px 0;padding-left:22px}
+.md li{margin:3px 0}
+.md code{background:#f3f4f6;border-radius:4px;padding:1px 5px;
+  font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.md pre{background:#f8f9fb;border:1px solid var(--line2);border-radius:8px;
+  padding:11px 13px;overflow:auto}
+.md pre code{background:none;padding:0}
+.md blockquote{border-left:3px solid var(--line);margin:9px 0;padding:2px 0 2px 13px;color:var(--dim)}
+.md table{border-collapse:collapse;margin:10px 0;font-size:12.5px;width:100%}
+.md th,.md td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+.md th{background:#fafbfc;font-weight:620}
+.md hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+.md strong{font-weight:650}
+
+/* ── 右栏 ── */
+.side .card>h2{font-size:12.5px}
+.stat{display:flex;justify-content:space-between;padding:5px 0;font-size:12.5px}
+.stat .k{color:var(--dim)}
+.stat .v{font-weight:600;font-variant-numeric:tabular-nums}
+.empty{color:var(--faint);font-size:12.5px;padding:2px 0}
+.dot-st{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.st-running{background:var(--blue);animation:pulse 1.2s infinite}
+.st-awaiting_approval{background:var(--orange);animation:pulse 1.2s infinite}
+.st-completed{background:var(--green)}
+.st-failed,.st-max_turns{background:var(--red)}
+.list-item{font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--line2);
+  display:flex;gap:8px}
+.list-item:last-child{border-bottom:none}
+.list-item .id{color:var(--faint);font-family:ui-monospace,monospace;flex:none}
+.list-item a{color:var(--blue);text-decoration:none}
+.list-item a:hover{text-decoration:underline}
+.run-hist{display:block;width:100%;text-align:left;background:none;border:none;
+  padding:7px 0;border-bottom:1px solid var(--line2);cursor:pointer;color:inherit;
+  border-radius:0;font:inherit}
+.run-hist:hover{background:#fafbfc}
+.run-hist:last-child{border-bottom:none}
+.run-hist .g{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run-hist .m{font-size:11.5px;color:var(--faint);margin-top:2px}
+</style>
+
+<header>
+  <div class="hd">
+    <h1>Agent 运行时控制台</h1>
+    <span class="sub">看一次运行里<strong>模型和工具各自做了什么</strong>；需要你批准或回答的，会停下来等你</span>
+    <div class="env" id="env"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- 主区 -->
+  <div class="col">
+    <div class="card">
+      <h2>发起任务</h2>
+      <div class="pad">
+        <div class="run-bar">
+          <input id="goal" placeholder="想让 Agent 做什么？比如：跑一次本月对账，把异常列出来">
+          <button id="go">运行</button>
+        </div>
+        <div class="presets">
+          <span class="preset" data-g="跑一次本月对账，把异常逐条列出来，并说明哪些该处理、由谁处理">本月对账</span>
+          <span class="preset" data-g="查一下现在银行存款余额，再告诉我本月有几笔支出">查余额和支出</span>
+          <span class="preset" data-g="看看这家公司的财务健康度，给我一份体检报告">财务体检</span>
+          <span class="preset" data-g="月末结账：先把该做的检查都过一遍，再执行结账">月末结账</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="ask-slot"></div>
+
+    <div class="card" id="trace-card" style="display:none">
+      <h2>执行链路<span class="hint" id="trace-hint"></span></h2>
+      <div class="pad" id="trace"></div>
+    </div>
+
+    <div class="card" id="answer-card" style="display:none">
+      <h2>结论</h2>
+      <div class="pad"><div class="md" id="answer"></div></div>
+    </div>
+
+    <div class="card" id="welcome">
+      <div class="pad">
+        <div class="md">
+          <p><strong>还没有运行过。</strong>上面输入一个任务，或者点一个预设开始。</p>
+          <p>这一页和业务界面<strong>不是一回事</strong>：</p>
+          <ul>
+            <li>业务界面（<a href="/" style="color:var(--blue)">/</a>）是给<strong>会计</strong>用的——记账、审核、看报表。</li>
+            <li>这里（<code>/console</code>）是给<strong>开发和运维</strong>用的——Agent 是个黑箱，这一页把它打开：
+                每一轮模型想了什么、调了哪个工具、花了多久，以及<strong>它卡在哪里等人</strong>。</li>
+          </ul>
+          <p>两边跑的是<strong>同一个 Agent、同一套工具</strong>。唯一区别：
+              业务界面里请求是同步的，高风险动作一律被拒（"请到界面上去做"）；
+              这里可以<strong>停下来等你批准或回答</strong>，因为它是异步的。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右栏 -->
+  <div class="col side">
+    <div class="card" id="run-card" style="display:none">
+      <h2>本次运行</h2>
+      <div class="pad" id="run-stats"></div>
+    </div>
+
+    <div class="card" id="board-card" style="display:none">
+      <h2>任务清单</h2>
+      <div class="pad" id="board"></div>
+    </div>
+
+    <div class="card" id="art-card" style="display:none">
+      <h2>落盘产出</h2>
+      <div class="pad" id="artifacts"></div>
+    </div>
+
+    <div class="card" id="files-card" style="display:none">
+      <h2>链路文件</h2>
+      <div class="pad" id="files"></div>
+    </div>
+
+    <div class="card">
+      <h2>运行历史<span class="hint">最近 20 次</span></h2>
+      <div class="pad" id="history"><div class="empty">（无）</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ───────── 极简 markdown 渲染 ─────────
+   Agent 的结论是 markdown（有标题、表格、列表）。
+   纯文本堆着读起来很累——这一页的产出就是那段结论，值得渲染好。
+   不引外部库：这一页要能离线打开（内网/演示都可能没网）。 */
+function md(src){
+  const L = esc(src).split('\n');
+  let out = '', i = 0;
+  const inline = s => s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+
+  while (i < L.length){
+    let l = L[i];
+    if (/^```/.test(l)){                       // 代码块
+      const buf = []; i++;
+      while (i < L.length && !/^```/.test(L[i])) buf.push(L[i++]);
+      i++; out += `<pre><code>${buf.join('\n')}</code></pre>`; continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(l)){              // 表格
+      const rows = [];
+      while (i < L.length && /^\s*\|.*\|\s*$/.test(L[i])) rows.push(L[i++]);
+      const cells = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head = cells(rows[0]);
+      const body = rows.slice(rows[1] && /^[\s|:-]+$/.test(rows[1]) ? 2 : 1);
+      out += '<table><thead><tr>' + head.map(c=>`<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+           + body.map(r=>'<tr>'+cells(r).map(c=>`<td>${inline(c)}</td>`).join('')+'</tr>').join('')
+           + '</tbody></table>';
+      continue;
+    }
+    if (/^#{1,4}\s/.test(l)){ out += `<h${l.match(/^#+/)[0].length}>${inline(l.replace(/^#+\s/,''))}</h${l.match(/^#+/)[0].length}>`; i++; continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(l)){ out += '<hr>'; i++; continue; }
+    if (/^\s*>\s?/.test(l)){ out += `<blockquote>${inline(l.replace(/^\s*>\s?/,''))}</blockquote>`; i++; continue; }
+    if (/^\s*[-*]\s+/.test(l)){                 // 无序列表
+      const buf = [];
+      while (i < L.length && /^\s*[-*]\s+/.test(L[i])) buf.push(L[i++].replace(/^\s*[-*]\s+/,''));
+      out += '<ul>' + buf.map(x=>`<li>${inline(x)}</li>`).join('') + '</ul>'; continue;
+    }
+    if (/^\s*\d+[.、]\s*/.test(l)){             // 有序列表
+      const buf = [];
+      while (i < L.length && /^\s*\d+[.、]\s*/.test(L[i])) buf.push(L[i++].replace(/^\s*\d+[.、]\s*/,''));
+      out += '<ol>' + buf.map(x=>`<li>${inline(x)}</li>`).join('') + '</ol>'; continue;
+    }
+    if (!l.trim()){ i++; continue; }
+    out += `<p>${inline(l)}</p>`; i++;
+  }
+  return out;
+}
+
+/* ───────── 状态 ───────── */
+let labels = {};                 // 工具名 → 中文短名
+let runId = null, es = null;
+let turns = [], turn = null, events = [], traceId = '';
+let pending = null, cdTimer = null;
+
+function toolLabel(n){ return labels[n] || n; }
+
+/* 耗时按量级选单位：本地查账是毫秒级，写成 "0.00s" 等于没写。
+   模型调用是秒级，两者用同一个单位反而都读不清。 */
+function dur(ms){
+  if (ms == null) return '';
+  return ms >= 1000 ? (ms/1000).toFixed(2) + 's'
+       : ms >= 10   ? Math.round(ms) + 'ms'
+       : ms.toFixed(1) + 'ms';
+}
+
+/* ───────── 环境信息 ───────── */
+fetch('/tools').then(r=>r.json()).then(d=>{
+  labels = Object.fromEntries(d.tools.map(t=>[t.name, t.label || t.name]));
+  $('env').innerHTML = `<span class="tag">工具 <b>${d.count}</b></span>`
+    + `<span class="tag">需审批 <b>${d.tools.filter(t=>t.requires_approval).length}</b></span>`;
+}).catch(()=>{});
+
+/* ───────── 发起 / 追问 ───────── */
+function start(goal, conv){
+  if (!goal.trim()) return $('goal').focus();
+  $('go').disabled = true; $('welcome').style.display = 'none';
+  $('answer-card').style.display='none'; $('ask-slot').innerHTML='';
+  turns = []; turn = null; events = []; traceId = ''; pending = null;
+  $('trace-card').style.display=''; $('trace').innerHTML='<div class="empty">已提交，等待 Agent 启动…</div>';
+  $('trace-hint').textContent = '';
+  $('run-card').style.display=''; $('run-stats').innerHTML='<div class="empty">运行中…</div>';
+
+  fetch('/runs', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({goal, conversation_id: conv || null})})
+    .then(r=>r.json()).then(d=>{ runId = d.run_id; listen(); renderHistory(); })
+    .catch(e=>{ $('trace').innerHTML = `<div class="empty">提交失败：${esc(e)}</div>`; $('go').disabled=false; });
+}
+
+function listen(){
+  if (es) es.close();
+  es = new EventSource(`/runs/${runId}/events`);
+  es.onmessage = e => { try { onEvent(JSON.parse(e.data)); } catch(_){} };
+  es.onerror = () => {};
+}
+
+/* ───────── 事件处理 ───────── */
+function onEvent(d){
+  switch(d.type){
+    case 'start':
+      traceId = d.trace_id;
+      $('env').innerHTML = `<span class="tag">模型 <b>${esc(d.model)}</b></span>`
+        + `<span class="tag">工具 <b>${d.tools.length}</b></span>`
+        + `<span class="tag">子 Agent <b>${d.subagents.length}</b></span>`
+        + `<span class="tag">MCP <b>${d.mcp_tools.length}</b></span>`;
+      $('run-stats').innerHTML = `<div class="stat"><span class="k">状态</span>
+        <span class="v"><span class="dot-st st-running"></span>运行中</span></div>`
+        + `<div class="stat"><span class="k">会话</span><span class="v">${esc(d.conversation_id)}</span></div>`
+        + (d.turn > 1 ? `<div class="stat"><span class="k">追问</span><span class="v">第 ${d.turn} 轮</span></div>` : '');
+      break;
+    case 'span':
+      if (d.kind === 'model' || d.kind === 'tool') pushSpan(d); else pushEvent(d);
+      renderTrace(); break;
+    case 'event': pushEvent(d); renderTrace(); break;
+    case 'human_request': pending = d.request; renderAsk(); break;
+    case 'human_resolved': pending = null; renderAsk(); break;
+    case 'done': finish(d); break;
+    case 'error': fail(d.error); break;
+  }
+}
+
+function pushSpan(s){
+  const f = s.fields || {};
+  if (s.kind === 'model'){
+    const m = /@turn(\d+)/.exec(s.name);
+    turn = {n: m ? +m[1] : turns.length + 1, ms: s.duration_ms,
+            ctx: f.ctx_chars, planned: f.tool_calls || [], tools: [], err: f.error};
+    turns.push(turn);
+  } else {
+    if (!turn){ turn = {n:1, ms:0, planned:[], tools:[]}; turns.push(turn); }
+    turn.tools.push({name:s.name, ms:s.duration_ms, ok:f.ok !== false,
+                     args:f.args, outcome:f.outcome});
+  }
+}
+function pushEvent(e){ events.push(e); }
+
+/* ───────── 渲染：执行链路（按"轮"分组） ───────── */
+function renderTrace(){
+  if (!turns.length && !events.length){ return; }
+  let h = '';
+  const byTurn = {};
+  turns.forEach(t => (byTurn[t.n] = byTurn[t.n] || []).push(t));
+
+  Object.keys(byTurn).sort((a,b)=>a-b).forEach(n => {
+    const group = byTurn[n];
+    group.forEach((t, gi) => {
+      h += `<div class="turn"><div class="turn-hd">第 ${n} 轮`
+        + (group.length > 1 ? ` · ${gi+1}/${group.length}` : '')
+        + `<span>${(t.ms/1000).toFixed(1)}s</span></div>`;
+      h += `<div class="think">🧠 <b>模型思考</b>`;
+      if (t.ctx) h += ` · 上下文 ${t.ctx.toLocaleString()} 字符`;
+      if (t.err) h += ` · <span style="color:var(--red)">出错：${esc(t.err).slice(0,80)}</span>`;
+      if (t.planned.length){
+        h += `<div class="planned">决定调用 ${t.planned.map(x=>`<span class="chip">${esc(toolLabel(x))}</span>`).join('')}</div>`;
+      }
+      h += `</div>`;
+      t.tools.forEach(x => {
+        h += `<div class="tool${x.ok?'':' bad'}"><span class="dot"></span>`
+          + `<span class="nm">🔧 ${esc(toolLabel(x.name))}</span>`
+          + (x.args && x.args !== '{}' ? `<span class="ar">${esc(String(x.args).slice(0,70))}</span>` : '')
+          + `<span class="ms">${dur(x.ms)}${x.ok?'':' ✗'}</span></div>`;
+        if (!x.ok && x.outcome) h += `<div class="evt">${esc(String(x.outcome).slice(0,140))}</div>`;
+      });
+      h += `</div>`;
+    });
+  });
+  events.forEach(e => {
+    const f = e.fields || {};
+    const extra = Object.entries(f).slice(0,3).map(([k,v])=>`${k}=${String(v).slice(0,26)}`).join(' ');
+    h += `<div class="evt">◇ ${esc(e.name)}${extra ? ' · '+esc(extra) : ''}</div>`;
+  });
+  $('trace').innerHTML = h;
+  const nTools = turns.reduce((a,t)=>a+t.tools.length,0);
+  $('trace-hint').textContent = `${turns.length} 轮 · ${nTools} 次工具调用`;
+}
+
+/* ───────── 渲染：审批 / 提问 ───────── */
+function renderAsk(){
+  clearInterval(cdTimer);
+  if (!pending){ $('ask-slot').innerHTML = ''; return; }
+  const r = pending;
+  const isQ = r.kind === 'question';
+  let inner;
+  if (isQ){
+    inner = `<div class="q-text">${esc(r.question)}</div>`;
+    if (r.options && r.options.length)
+      inner += `<div>` + r.options.map(o=>`<span class="q-opt" data-ans="${esc(o)}">${esc(o)}</span>`).join('') + `</div>`;
+    inner += `<div class="q-ans">
+        <input id="ans" placeholder="输入回答，回车提交">
+        <button class="ok" id="send-ans">回答</button></div>`;
+  } else {
+    const args = r.args && Object.keys(r.args).length
+      ? `<div class="kv">参数 <code>${esc(JSON.stringify(r.args)).slice(0,120)}</code></div>` : '';
+    inner = `<div class="q-text">Agent 想调用 <b>${esc(toolLabel(r.tool))}</b>（<code>${esc(r.tool)}</code>）</div>`
+          + `<div class="kv">原因：${esc(r.reason)}</div>${args}`
+          + `<div style="margin-top:12px;display:flex;gap:9px">
+               <button class="ok" id="approve">批准执行</button>
+               <button class="no" id="reject">拒绝</button></div>`;
+  }
+  $('ask-slot').innerHTML = `<div class="card ask">
+      <h2><span class="pulse"></span>需要你${isQ?'回答':'批准'}
+        <span class="risk ${esc(r.risk||'low')}">${r.risk==='high'?'高风险':r.risk==='medium'?'中风险':'低风险'}</span>
+        <span class="hint countdown" id="cd"></span></h2>
+      <div class="pad">${inner}</div></div>`;
+
+  const send = body => fetch(`/runs/${runId}/approvals/${r.id}`, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(()=>{ pending=null; renderAsk(); });
+
+  if (isQ){
+    const go = () => { const v = $('ans').value.trim(); if (v) send({answer:v, approved:true, decider:'console'}); };
+    $('send-ans').onclick = go;
+    $('ans').onkeydown = e => { if (e.key === 'Enter') go(); };
+    $('ask-slot').querySelectorAll('.q-opt').forEach(el =>
+      el.onclick = () => send({answer: el.dataset.ans, approved:true, decider:'console'}));
+    setTimeout(()=>{ const a=$('ans'); if(a) a.focus(); }, 30);
+  } else {
+    $('approve').onclick = () => send({approved:true,  decider:'console', note:'控制台批准'});
+    $('reject').onclick  = () => send({approved:false, decider:'console', note:'控制台拒绝'});
+  }
+
+  // 倒计时：让"超时会自动拒绝"这件事可见，而不是突然失败
+  if (r.timeout_sec){
+    let left = Math.round(r.timeout_sec);
+    const tick = () => {
+      const el = $('cd'); if (!el) return clearInterval(cdTimer);
+      el.textContent = `剩余 ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}${isQ?'':' 后自动拒绝'}`;
+      if (--left < 0) clearInterval(cdTimer);
+    };
+    tick(); cdTimer = setInterval(tick, 1000);
+  }
+}
+
+/* ───────── 渲染：右栏 ───────── */
+function stat(k, v){ return `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+
+function finish(d){
+  clearInterval(cdTimer); pending = null; renderAsk();
+  $('go').disabled = false; renderTrace();
+  const u = d.usage || {};
+  const st = {completed:'已完成', max_turns:'达到轮数上限', failed:'失败'}[d.status] || d.status;
+  $('run-stats').innerHTML =
+      stat('状态', `<span class="dot-st st-${esc(d.status)}"></span>${esc(st)}`)
+    + stat('轮数', d.turns)
+    + stat('耗时', (d.elapsed_ms/1000).toFixed(1) + 's')
+    + stat('工具调用', turns.reduce((a,t)=>a+t.tools.length,0) + ' 次')
+    + stat('token', (u.total_tokens||0).toLocaleString()
+        + `<span style="color:var(--faint);font-weight:400"> (${(u.prompt_tokens||0).toLocaleString()}+${(u.completion_tokens||0).toLocaleString()})</span>`);
+
+  if (d.board && d.board.length){
+    $('board-card').style.display='';
+    $('board').innerHTML = d.board.map(t =>
+      `<div class="list-item"><span class="id">${esc(t.id||'')}</span>
+       <span>${esc(t.subject||'')}<span style="color:var(--faint)"> · ${esc(t.status||'')}</span></span></div>`).join('');
+  }
+  if (d.artifacts && d.artifacts.length){
+    $('art-card').style.display='';
+    $('artifacts').innerHTML = d.artifacts.map(a =>
+      `<div class="list-item"><span>${esc(String(a).split(/[\\/]/).pop())}</span></div>`).join('');
+  }
+  if (d.trace_html){
+    $('files-card').style.display='';
+    $('files').innerHTML = `<div class="list-item"><a href="/traces/${esc(d.trace_id)}" target="_blank">↗ ${esc(d.trace_html)}</a></div>`
+      + `<div class="empty" style="margin-top:4px">离线时间线，可单独打开</div>`;
+  }
+  if (d.answer){ $('answer-card').style.display=''; $('answer').innerHTML = md(d.answer); }
+  $('goal').placeholder = '接着追问，例如：那 9 月呢？';
+  renderHistory();
+}
+
+function fail(err){
+  clearInterval(cdTimer); pending = null; renderAsk();
+  $('go').disabled = false;
+  $('trace').innerHTML += `<div class="evt" style="color:var(--red);background:var(--red-bg)">✗ ${esc(err)}</div>`;
+  $('run-stats').innerHTML = stat('状态', `<span class="dot-st st-failed"></span>失败`);
+  renderHistory();
+}
+
+function renderHistory(){
+  fetch('/runs').then(r=>r.json()).then(d=>{
+    if (!d.runs || !d.runs.length){ $('history').innerHTML = '<div class="empty">（无）</div>'; return; }
+    $('history').innerHTML = d.runs.slice(0,20).map(r => {
+      const st = {completed:'✓', failed:'✗', running:'…', awaiting_approval:'⏸'}[r.status] || '·';
+      return `<button class="run-hist" data-run="${esc(r.run_id)}">
+        <div class="g">${st} ${esc(r.goal.slice(0,42))}</div>
+        <div class="m">${r.turns} 轮 · ${r.elapsed_sec}s · ${esc(r.run_id)}</div></button>`;
+    }).join('');
+    $('history').querySelectorAll('.run-hist').forEach(b => b.onclick = () => openRun(b.dataset.run));
+  }).catch(()=>{});
+}
+
+/* 点历史记录：把那一趟重新画出来 */
+function openRun(id){
+  fetch(`/runs/${id}`).then(r=>r.json()).then(d=>{
+    $('welcome').style.display='none';
+    turns = []; turn = null; events = [];
+    runId = id;
+    if (d.answer){ $('answer-card').style.display=''; $('answer').innerHTML = md(d.answer); }
+    renderTrace();
+    finish({...d, usage:d.usage||{}, elapsed_ms:(d.elapsed_sec||0)*1000,
+            board:d.board, artifacts:d.artifacts, trace_id:d.trace_id, trace_html:''});
+  });
+}
+
+/* ───────── 绑定 ───────── */
+$('go').onclick = () => start($('goal').value);
+$('goal').onkeydown = e => { if (e.key === 'Enter') start($('goal').value); };
+document.querySelectorAll('.preset').forEach(p =>
+  p.onclick = () => { $('goal').value = p.dataset.g; start(p.dataset.g); });
+renderHistory();
+</script>
+</html>

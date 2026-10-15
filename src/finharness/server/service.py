@@ -20,7 +20,7 @@ import queue
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from ..assemble import build_harness
 from ..observability.trace import Trace
@@ -150,21 +150,17 @@ class RunManager:
             q.put(payload)
 
     def _on_approval_request(self, rec: RunRecord, req) -> None:
-        """审批门回调：在 Agent 线程里被调用，推给前端并挂起状态。"""
+        """人工介入回调：在 Agent 线程里被调用，推给前端并挂起状态。
+
+        审批（要人点头）和提问（要人给信息）走的是同一条路——
+        前端靠 `kind` 决定渲染成「批准/拒绝」还是「输入框」。
+        """
         rec.status = "awaiting_approval"
         rec.pending_approvals.append(req.id)
         self._checkpoint(rec)          # 审批断点也落盘：进程被杀也恢复得回来
-        self._emit(
-            rec.run_id,
-            {
-                "type": "approval_request",
-                "request": {
-                    "id": req.id, "tool": req.tool, "args": req.args,
-                    "reason": req.reason, "risk": req.risk,
-                    "timeout_sec": self._gates[rec.run_id].timeout,
-                },
-            },
-        )
+        payload = asdict(req)
+        payload["timeout_sec"] = self._gates[rec.run_id].timeout
+        self._emit(rec.run_id, {"type": "human_request", "request": payload})
 
     # —— 断点 ——
     def _checkpoint(self, rec: RunRecord) -> None:
@@ -208,13 +204,13 @@ class RunManager:
         )
         return self.start(goal)
 
-    def resolve_approval(self, run_id: str, req_id: str, approved: bool,
-                         decider: str = "", note: str = "") -> bool:
+    def resolve_approval(self, run_id: str, req_id: str, approved: bool = True,
+                         decider: str = "", note: str = "", answer: str = "") -> bool:
         gate = self._gates.get(run_id)
         rec = self.runs.get(run_id)
         if gate is None or rec is None:
             return False
-        ok = gate.resolve(req_id, approved, decider=decider, note=note)
+        ok = gate.resolve(req_id, approved, decider=decider, note=note, answer=answer)
         if ok:
             if req_id in rec.pending_approvals:
                 rec.pending_approvals.remove(req_id)
@@ -223,9 +219,10 @@ class RunManager:
             self._emit(
                 run_id,
                 {
-                    "type": "approval_resolved",
+                    "type": "human_resolved",
                     "id": req_id,
                     "approved": approved,
+                    "answer": answer,
                     "decider": decider,
                     "note": note,
                 },

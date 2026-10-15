@@ -133,3 +133,96 @@ def test_stats_counts_outcomes():
     gate = ApprovalGate(rules=lambda t, a: (True, "x"), timeout=0.2)
     gate.request("t", {}, "x")            # 超时
     assert gate.stats()["by_status"].get("timeout") == 1
+
+
+# ═══════════ 提问（人工介入的另一种形态）═══════════
+#
+# 和审批共用一套阻塞机制，但语义不同：
+#   审批 = 人有否决权（批/拒）；提问 = 人供给信息（一段文本）。
+# 所以批准永远保持二值，不会被自由文本污染。
+
+def test_ask_returns_the_answer():
+    gate = ApprovalGate(timeout=5)
+    gate.notifier = lambda req: threading.Timer(
+        0.1, lambda: gate.resolve(req.id, answer="记主营业务成本", decider="会计")
+    ).start()
+    req = gate.ask("这笔采购算办公费还是成本？", ["办公费", "主营业务成本"])
+    assert req.status == "answered"
+    assert req.answer == "记主营业务成本"
+    assert req.kind == "question"
+
+
+def test_ask_carries_options():
+    gate = ApprovalGate(timeout=5)
+    seen = {}
+    gate.notifier = lambda req: (seen.update(req=req),
+                                 threading.Timer(0.1, lambda: gate.resolve(req.id, answer="A")).start())
+    gate.ask("选哪个？", ["A", "B"])
+    assert seen["req"].options == ["A", "B"]
+    assert seen["req"].question == "选哪个？"
+
+
+def test_ask_timeout_is_not_a_rejection():
+    """超时和"被拒绝"不是一回事：回答是文本，没有"拒绝"这个值。
+    超时后 answer 为空，由调用方决定怎么降级。"""
+    gate = ApprovalGate(timeout=0.2)
+    req = gate.ask("问一句没人理")
+    assert req.status == "timeout"
+    assert req.answer == ""
+
+
+def test_approved_flag_does_not_replace_answer():
+    """提问走 answer，不走 approved——两者分开，语义才不会被搅在一起。"""
+    gate = ApprovalGate(timeout=5)
+    gate.notifier = lambda req: threading.Timer(
+        0.1, lambda: gate.resolve(req.id, approved=False, answer="照旧记办公费")
+    ).start()
+    req = gate.ask("这笔记哪？")
+    assert req.status == "answered"
+    assert req.answer == "照旧记办公费"
+
+
+# ═══════════ ask_user 工具：三种环境的降级 ═══════════
+
+def _ask_tool(gate):
+    from finharness.tools.human import register_human_tools
+    from finharness.runtime.tools import ToolRegistry
+    reg = ToolRegistry()
+    register_human_tools(reg, gate)
+    return reg.get("ask_user").handler
+
+
+def test_ask_user_tool_returns_answer():
+    gate = ApprovalGate(timeout=5)
+    gate.notifier = lambda req: threading.Timer(
+        0.1, lambda: gate.resolve(req.id, answer="是重复报销")
+    ).start()
+    r = _ask_tool(gate)("这张发票是不是重复报销？")
+    assert r["ok"] and r["answer"] == "是重复报销"
+
+
+def test_ask_user_tool_without_gate_degrades():
+    """没有门（CLI / 单测装配）时不是报错，而是让模型自己合理假设。
+    注册不依赖 gate——否则线上和测试的工具池形状就不一样了。"""
+    r = _ask_tool(None)("这个记哪？")
+    assert "error" in r and "合理假设" in r["error"]
+
+
+def test_ask_user_tool_on_timeout_degrades():
+    r = _ask_tool(ApprovalGate(timeout=0.2))("没人回答")
+    assert "error" in r and "假设" in r["error"]
+
+
+def test_ask_user_is_registered_even_without_gate():
+    from finharness.assemble import build_harness
+    names = build_harness()["registry"].names()
+    assert "ask_user" in names
+
+
+def test_sync_chat_gate_degrades_gracefully():
+    """业务界面是同步请求，HTTP 连接不能挂着等人打字。
+    所以那边一律返回"没问到"，工具降级——而不是把请求挂死。"""
+    from finharness.services.chat_service import _RejectingGate
+    req = _RejectingGate().ask("这个记哪？")
+    assert req.status == "timeout"
+    assert req.answer == ""

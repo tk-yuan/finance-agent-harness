@@ -31,6 +31,7 @@ from .tools.finance import register_finance_tools
 from .tools.kb import register_kb_tools
 from .tools.async_tasks import register_async_tools, register_schedules
 from .tools.ledger import register_ledger_tools
+from .tools.human import register_human_tools
 from .tools.team_tools import register_team_tools
 
 MAIN_SYSTEM = """你是一家小微企业的财务助手。你的职责是帮出纳和会计把账记准、查清、核好。
@@ -49,9 +50,12 @@ AI 介入后这个校验点更缺，所以：
 
 1. **数字必须来自工具**。任何金额、余额、合计都要调工具算，不许估算或心算。
 
-2. **科目判断要有依据**。不确定一笔支出该记什么科目时，
-   先用 `search_accounting_rules` 查准则，或委派 `rule_researcher`，
-   不要凭"感觉应该算办公费"下结论。
+2. **科目判断要有依据，判断不了就问。** 不确定一笔支出该记什么科目时，
+   先用 `search_accounting_rules` 查准则，或委派 `rule_researcher`。
+   但**准则也定不了、属于业务性质的问题**——这笔采购到底是耗材还是成本、
+   这张发票是不是重复报销、这笔款对应哪个合同——用 `ask_user` 直接问用户。
+   **宁可问一句，不要凭"感觉应该算办公费"下结论。**
+   注意分寸：能从账套和准则查到的一律自己查，`ask_user` 不是偷懒的出口。
 
 3. **记账必须有凭证**。没有发票/回单的支出不允许登记——白条入账税务不认。
    工具会拦你，但你不该等到被拦才想起来。
@@ -164,6 +168,7 @@ def build_harness(goal: str = "", trace: Trace | None = None,
     register_finance_tools(registry)     # 余额、往来、对账、结账、报表
     register_kb_tools(registry)          # 财会准则检索
     register_fs_tools(registry, policy)  # 虚拟文件系统
+    register_human_tools(registry, approval_gate)   # 向人提问（审批门的"问答"形态）
     register_skill_tools(registry, skills)
     register_board_tool(registry, board)
 
