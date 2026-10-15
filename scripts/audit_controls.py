@@ -152,12 +152,17 @@ def s_write_outside_whitelist():
 
     write_file 是 register_fs_tools 里的闭包（要绑定 permission policy），
     所以从工具池里取，而不是直接 import。
+
+    **路径不能用 "C:/Windows/..." 这种写法**：那在 Windows 上是绝对路径，
+    在 Linux 上只是个相对路径，会被判定在允许根之内、根本不触发拦截——
+    CI 上就是这么假过的。用系统临时目录，两个平台都是绝对路径且都在允许根之外。
     """
     from finharness.assemble import build_harness
 
     bundle = build_harness()
     tool = bundle["registry"].get("write_file")
-    return tool.handler(path="C:/Windows/System32/evil.txt", content="x")
+    outside = Path(tempfile.gettempdir()) / "evil.txt"
+    return tool.handler(path=str(outside), content="x")
 
 
 def s_approval_rejected_blocks_execution():
