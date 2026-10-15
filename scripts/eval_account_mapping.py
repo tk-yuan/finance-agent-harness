@@ -27,8 +27,11 @@
     python scripts/eval_account_mapping.py 30             # 每个科目最多抽 30 条
     python scripts/eval_account_mapping.py --ledger D:/path/to/ledger.db
 
-默认账套 `data/eval_ledger.db` 随仓库提供（548 条已入账单据），
-所以克隆下来不用另找数据就能复现这组数字。
+默认账套 `data/eval_ledger.db` 随仓库提供（548 条已入账单据），克隆下来不用另找数据。
+
+**为什么评测不直接用运行时的 `data/finance.db`**：那是活库，界面上的记账、结账都会改它。
+拿它做评测，数字就会随着"你玩了几次演示"而漂移，README 里那组结果也就不再可复现。
+内容上两者现在是同一份账套，只是角色不同——一个给人用，一个给数字用。
 """
 
 from __future__ import annotations
