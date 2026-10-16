@@ -33,6 +33,7 @@ from .tools.async_tasks import register_async_tools, register_schedules
 from .tools.ledger import register_ledger_tools
 from .tools.human import register_human_tools
 from .tools.shell import register_shell_tools
+from .tools.vision import register_vision_tools
 from .tools.team_tools import register_team_tools
 
 MAIN_SYSTEM = """你是一家小微企业的财务助手。你的职责是帮出纳和会计把账记准、查清、核好。
@@ -61,8 +62,9 @@ AI 介入后这个校验点更缺，所以：
    **宁可问一句，不要凭"感觉应该算办公费"下结论。**
    注意分寸：能从账套和准则查到的一律自己查，`ask_user` 不是偷懒的出口。
 
-3. **记账必须有凭证**。没有发票/回单的支出不允许登记——白条入账税务不认。
-   工具会拦你，但你不该等到被拦才想起来。
+3. **记账必须有凭证，而且要先看清凭证**。没有发票/回单的支出不允许登记——白条入账税务不认。
+   用户传了凭证图片/PDF 时，**先用 `read_image` 把内容读出来**（金额、日期、对方单位、
+   商品或服务），再决定怎么记。只凭文件名猜金额和科目，是这一行最不能犯的错。
 
 4. **区分余额和流水**。`query_entries` 回答"这段时间花了多少"（流量），
    `get_account_balance` 回答"账上还剩多少"（存量）。问的是哪个就答哪个。
@@ -183,6 +185,7 @@ def build_harness(goal: str = "", trace: Trace | None = None,
     register_kb_tools(registry)          # 财会准则检索
     register_fs_tools(registry, policy)  # 虚拟文件系统（区外路径会问人）
     register_shell_tools(registry)       # 命令行（每次调用都要人批准）
+    register_vision_tools(registry, policy)  # 看图（区外的图要人授权）
     register_human_tools(registry, approval_gate)   # 向人提问（审批门的"问答"形态）
     register_skill_tools(registry, skills)
     register_board_tool(registry, board)

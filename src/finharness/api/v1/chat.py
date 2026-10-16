@@ -66,10 +66,14 @@ async def chat(
 
     content = message
     if voucher_name:
+        # 给**绝对路径**：相对路径要按允许根去猜，Agent 容易写成 data/attachments/… 而解析不到。
+        # 顺带把顺序也交代清楚——先看内容再记账，别凭文件名猜金额。
+        full = ATTACHMENT_DIR / voucher_name
         content = (
             f"{message}\n\n"
-            f"〔系统信息：用户本次上传了凭证，文件名为 {voucher_name}。"
-            f"如果用户要求记账，调用 submit_voucher 时 voucher 参数填这个文件名。〕"
+            f"〔系统信息：用户本次上传了凭证，已保存到 {full}。\n"
+            f"  用 read_image(path=\"{full}\") 把它的内容读出来（金额 / 日期 / 对方单位 / 商品），再决定怎么记。\n"
+            f"  调 submit_voucher 时 voucher 参数填 {voucher_name}。〕"
         )
     conversation_service.add_message(session_id, "user", content, auto_title=True)
 

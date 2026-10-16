@@ -119,31 +119,33 @@ def _warnings(raw: dict, amount: float) -> list[str]:
     return out
 
 
-def parse_invoice(file_path: str | Path, settings: Settings | None = None) -> dict:
-    """识别发票，返回结构化字段 + 建议科目 + 待核对提示。"""
-    settings = settings or get_settings()
-    path = Path(file_path)
-    if not path.exists():
-        raise AppError(f"文件不存在：{path}")
+def ask_vision(path: Path, prompt: str, max_tokens: int = 600) -> str:
+    """把一张图（或带文字层的 PDF）交给模型读，返回文本。
 
+    **两个调用方共用**：发票结构化提取（`parse_invoice`）和 Agent 的通用看图工具。
+
+    之前这段逻辑只长在 `parse_invoice` 里，后果是：出纳页能认发票，
+    但 **Agent 在对话里收到用户传的发票时看不见内容**——它只拿到一个文件名。
+    把这段抽出来共用，Agent 才真的长了眼睛。
+    """
+    settings = get_settings()
     suffix = path.suffix.lower()
     client = _client(settings)
 
     if suffix in IMAGE_SUFFIXES:
         b64 = base64.b64encode(path.read_bytes()).decode()
         mime = "image/jpeg" if suffix in {".jpg", ".jpeg"} else f"image/{suffix.lstrip('.')}"
-        content = [
-            {"type": "text", "text": _EXTRACT_PROMPT},
-            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-        ]
         resp = client.chat.completions.create(
             model=VL_MODEL,
-            messages=[{"role": "user", "content": content}],
-            max_tokens=600,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ]}],
+            max_tokens=max_tokens,
         )
-        raw = _parse_json(resp.choices[0].message.content or "")
+        return resp.choices[0].message.content or ""
 
-    elif suffix == PDF_SUFFIX:
+    if suffix == PDF_SUFFIX:
         from pypdf import PdfReader
 
         try:
@@ -158,14 +160,18 @@ def parse_invoice(file_path: str | Path, settings: Settings | None = None) -> di
             )
         resp = client.chat.completions.create(
             model=settings.siliconflow_chat_model,
-            messages=[{
-                "role": "user",
-                "content": f"{_EXTRACT_PROMPT}\n\n发票文字内容如下：\n{text[:3000]}",
-            }],
-            max_tokens=600,
+            messages=[{"role": "user", "content": f"{prompt}\n\n文件文字内容如下：\n{text[:3000]}"}],
+            max_tokens=max_tokens,
         )
-        raw = _parse_json(resp.choices[0].message.content or "")
-    else:
-        raise AppError(f"不支持的格式 {suffix}，请上传图片(jpg/png)或 PDF。")
+        return resp.choices[0].message.content or ""
 
+    raise AppError(f"不支持的格式 {suffix}，只认图片(jpg/png/webp)和 PDF。")
+
+
+def parse_invoice(file_path: str | Path, settings: Settings | None = None) -> dict:
+    """识别发票，返回结构化字段 + 建议科目 + 待核对提示。"""
+    path = Path(file_path)
+    if not path.exists():
+        raise AppError(f"文件不存在：{path}")
+    raw = _parse_json(ask_vision(path, _EXTRACT_PROMPT))
     return _normalize(raw)

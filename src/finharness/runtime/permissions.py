@@ -59,12 +59,26 @@ class PermissionPolicy:
     def _inside(self, p: Path) -> bool:
         return any(p == r or r in p.parents for r in self.allowed_roots)
 
+    def _resolve(self, raw: str) -> Path:
+        """相对路径按允许根**逐个试**：先取真实存在的那个，都不存在就落到第一个根。
+
+        为什么不能只按第一个根拼：凭证落在 `data/attachments/`，而第一个根是 `workspace/`。
+        只按第一个根解析的话，Agent 传 `data/attachments/x.jpg` 会被拼成
+        `workspace/data/attachments/x.jpg`，**永远找不到**——它只能靠猜绝对路径。
+        允许根本来就是这个项目的两个地盘，跨根找一下是符合直觉的。
+        """
+        p = Path(raw)
+        if p.is_absolute():
+            return p.resolve()
+        for r in self.allowed_roots:
+            cand = (r / p).resolve()
+            if cand.exists():
+                return cand
+        return (self.allowed_roots[0] / p).resolve()
+
     def check_path(self, raw: str, write: bool = False, tool: str = "") -> Path:
         """解析路径并校验。区外路径会**问用户**（有 gate 时），而不是直接拒。"""
-        p = Path(raw)
-        if not p.is_absolute():
-            p = self.allowed_roots[0] / p
-        p = p.resolve()
+        p = self._resolve(raw)
 
         if not self._inside(p) and not self._already_granted(p):
             if self.gate is None or not self._ask(p, write, tool):

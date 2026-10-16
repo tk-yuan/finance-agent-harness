@@ -131,7 +131,7 @@ jobs:
           import json
           d = json.load(open('/tmp/tools.json'))
           names = {t['name'] for t in d['tools']}
-          for need in ('run_command', 'ask_user', 'post_voucher', 'read_file'):
+          for need in ('run_command', 'ask_user', 'read_image', 'post_voucher', 'read_file'):
               assert need in names, '缺少工具 ' + need
           gated = {t['name'] for t in d['tools'] if t['requires_approval']}
           assert {'run_command', 'post_voucher', 'spawn_teammate'} <= gated, gated
