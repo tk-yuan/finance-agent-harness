@@ -4,13 +4,11 @@
 
 两套界面共用一个进程、一个端口：
 
-    业务系统  GET  /            真实产品界面（记账/对账/报表/财务分析）
-    运行时控制台 GET  /console        Agent 执行链路（实时事件流 + 任务清单 + 审批面板）
+    业务系统  GET  /            产品界面（记账/对账/报表/财务分析 + 对话）
 
 业务接口来自 `api/v1`（挂在 `/api/v1`），运行时接口是本文件定义的。
 
 端点：
-    GET  /console                   单页控制台（实时事件流 + 任务清单 + 审批面板）
     GET  /health                    健康检查
     GET  /tools                     当前工具池（含是否需要审批）
     POST /runs                      提交任务，返回 run_id
@@ -40,12 +38,12 @@ from pydantic import BaseModel, Field
 from ..api.router import api_v1
 from ..assemble import build_harness
 from ..config import TRACE_DIR, WEB_DIR
-from ..services.chat_service import TOOL_LABELS
+from ..services.tool_labels import TOOL_LABELS
 from ..storage.store import list_checkpoints, load_checkpoint, shared_store
-from .service import RunManager
+from .service import shared_manager
 
 app = FastAPI(title="企业财务多智能体系统", version="0.3.0")
-MANAGER = RunManager()
+MANAGER = shared_manager()
 
 # 业务接口（记账/对账/报表/分析）——由 finance-agent 的业务层提供，原样挂载
 app.include_router(api_v1)
@@ -84,7 +82,7 @@ def health() -> dict:
 def tools() -> dict:
     """把工具池连同「是否需要审批」一起列出来——审批规则是可查的，不是黑箱。
 
-    同时给出中文短名（`label`）：控制台的时间线要写人话，
+    同时给出中文短名（`label`）：界面要写人话，
     「月度对账」比 `reconcile_month` 好读。标签与业务界面共用同一份定义，
     免得两边各维护一套、改了不同步。
     """
@@ -250,13 +248,3 @@ def trace_html(trace_id: str) -> HTMLResponse:
 def index() -> FileResponse:
     """真实产品界面：记账、审核、对账、报表、财务分析。"""
     return FileResponse(WEB_DIR / "index.html")
-
-
-@app.get("/console", response_class=HTMLResponse)
-def console() -> FileResponse:
-    """运行时控制台：看 Agent 每一轮在干什么、卡在哪个审批。
-
-    独立成 web/console.html 而不是内联在这里——内联版本没法单独看、没法调试，
-    改一版要动 Python 文件。前端就该待在前端文件里。
-    """
-    return FileResponse(WEB_DIR / "console.html")

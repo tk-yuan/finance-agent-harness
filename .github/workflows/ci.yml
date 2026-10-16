@@ -69,7 +69,7 @@ jobs:
               return out
 
           paths = collect(app.routes) | set(app.openapi().get('paths', {}))
-          for need in ('/api/v1/chat', '/runs/{run_id}/events', '/console', '/'):
+          for need in ('/api/v1/chat', '/runs/{run_id}/events', '/traces/{trace_id}', '/'):
               assert need in paths, '缺少路由 ' + need
           print('路由', len(paths), '条 | 业务 + 运行时 均已装配')
           "
@@ -119,12 +119,27 @@ jobs:
           fi
           echo "健康检查通过：$(cat /tmp/health.json)"
 
-      - name: 两个界面入口都在
+      - name: 产品界面与接口都在
+        # 控制台那页已经并进业务界面了，所以这里查的是：产品界面能开、
+        # 工具池接口通、业务接口通。容器里没配 key，所以只碰不调模型的那几个。
         run: |
           diag() { while IFS= read -r l; do echo "::error::$l"; done; }
-          curl -sf -o /dev/null http://127.0.0.1:8000/        || { echo "::error::业务界面 / 不可访问"; exit 1; }
-          curl -sf -o /dev/null http://127.0.0.1:8000/console  || { echo "::error::控制台 /console 不可访问"; exit 1; }
-          echo "业务界面 / 与运行时控制台 /console 均可访问"
+          curl -sf -o /dev/null http://127.0.0.1:8000/     || { echo "::error::产品界面 / 不可访问"; exit 1; }
+          curl -sf http://127.0.0.1:8000/tools > /tmp/tools.json \
+            || { echo "::error::工具池接口 /tools 不可用"; exit 1; }
+          python -c "
+          import json
+          d = json.load(open('/tmp/tools.json'))
+          names = {t['name'] for t in d['tools']}
+          for need in ('run_command', 'ask_user', 'post_voucher', 'read_file'):
+              assert need in names, '缺少工具 ' + need
+          gated = {t['name'] for t in d['tools'] if t['requires_approval']}
+          assert {'run_command', 'post_voucher', 'spawn_teammate'} <= gated, gated
+          print('工具', d['count'], '个 | 需审批', sorted(gated))
+          "
+          curl -sf -o /dev/null http://127.0.0.1:8000/api/v1/company \
+            || { echo "::error::业务接口 /api/v1/company 不可用"; exit 1; }
+          echo "产品界面与接口均可访问"
 
       - name: 收尾
         if: always()

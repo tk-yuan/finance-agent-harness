@@ -217,12 +217,3 @@ def test_ask_user_is_registered_even_without_gate():
     from finharness.assemble import build_harness
     names = build_harness()["registry"].names()
     assert "ask_user" in names
-
-
-def test_sync_chat_gate_degrades_gracefully():
-    """业务界面是同步请求，HTTP 连接不能挂着等人打字。
-    所以那边一律返回"没问到"，工具降级——而不是把请求挂死。"""
-    from finharness.services.chat_service import _RejectingGate
-    req = _RejectingGate().ask("这个记哪？")
-    assert req.status == "timeout"
-    assert req.answer == ""

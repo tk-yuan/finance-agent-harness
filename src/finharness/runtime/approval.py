@@ -27,7 +27,7 @@
 三种工作模式共用同一个 gate，只是 notifier 不同：
   · CLI   控制台提问，人回车
   · 服务  请求经 SSE 推给前端，等 HTTP 回调 resolve()
-  · 同步聊天  没有"等人"的余地，一律降级（见 chat_service）
+  · 越界访问文件  由 PermissionPolicy 调用，问"要不要允许读/写这个路径"
 """
 
 from __future__ import annotations

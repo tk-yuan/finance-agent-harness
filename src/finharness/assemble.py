@@ -32,9 +32,13 @@ from .tools.kb import register_kb_tools
 from .tools.async_tasks import register_async_tools, register_schedules
 from .tools.ledger import register_ledger_tools
 from .tools.human import register_human_tools
+from .tools.shell import register_shell_tools
 from .tools.team_tools import register_team_tools
 
 MAIN_SYSTEM = """你是一家小微企业的财务助手。你的职责是帮出纳和会计把账记准、查清、核好。
+
+**始终用中文回答。** 哪怕用户的问题里夹着英文、路径、代码，结论也必须是中文——
+这是给中国企业会计看的。术语可以用行业习惯的叫法，但不要整段换成英文。
 
 **最重要的一条：你没有人事权和签字权。**
 
@@ -70,10 +74,19 @@ AI 介入后这个校验点更缺，所以：
 
 {fs_layout}
 
-6. **该委派就委派**。查会计处理依据、独立稽核、多维度财务分析，
+6. **工作区之外的文件，先问再动**。工作区内（`workspace/`、`data/`）随便读写；
+   要碰区外的文件——比如用户桌面上那份 Excel、客户发来的对账单——直接去读，
+   **系统会自动弹一条请求让用户点"允许"**。被拒绝就停下来告诉用户你本来想干什么，
+   不要绕道、不要试图用别的方式绕开这个检查。
+
+7. **需要跑命令时用 `run_command`**。账套里查得到的一律用查账工具，不要绕道命令行。
+   但查看文件、统计、格式转换（Excel 转 CSV 之类）这些账套之外的事，用它最快。
+   命令要写完整、清晰——**每一次都会弹给人批准，看不明白的命令没人敢批**。
+
+8. **该委派就委派**。查会计处理依据、独立稽核、多维度财务分析，
    用 task 工具交给子 Agent，只收回结论。
 
-7. **收工前自查**。任务清单没做完不许收工；账目有问题要如实说，不要报喜不报忧。
+9. **收工前自查**。任务清单没做完不许收工；账目有问题要如实说，不要报喜不报忧。
 """
 
 _FS_LAYOUT = "\n".join(f"     workspace/{k}/   —— {v}" for k, v in VIRTUAL_FS.items())
@@ -157,7 +170,8 @@ def build_harness(goal: str = "", trace: Trace | None = None,
     CLI 模式传一个控制台提示的 gate，服务模式传一个经 SSE 推给前端的 gate。
     """
     registry = ToolRegistry()
-    policy = PermissionPolicy()
+    # 把审批门接进权限层：区外路径不硬拒，改成推一条请求问用户
+    policy = PermissionPolicy(gate=approval_gate)
     board = TaskBoard()
     memory = LayeredMemory()
     skills = SkillLibrary(SKILLS_DIR)
@@ -167,7 +181,8 @@ def build_harness(goal: str = "", trace: Trace | None = None,
     register_ledger_tools(registry)      # 出纳 + 会计（含内控约束）
     register_finance_tools(registry)     # 余额、往来、对账、结账、报表
     register_kb_tools(registry)          # 财会准则检索
-    register_fs_tools(registry, policy)  # 虚拟文件系统
+    register_fs_tools(registry, policy)  # 虚拟文件系统（区外路径会问人）
+    register_shell_tools(registry)       # 命令行（每次调用都要人批准）
     register_human_tools(registry, approval_gate)   # 向人提问（审批门的"问答"形态）
     register_skill_tools(registry, skills)
     register_board_tool(registry, board)

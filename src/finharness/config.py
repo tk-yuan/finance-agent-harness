@@ -63,8 +63,13 @@ ACCOUNTANT = os.getenv("FIN_ACCOUNTANT", "会计-李四")
 # 会计期间（月度结账用）
 FISCAL_YEAR = int(os.getenv("FIN_FISCAL_YEAR", "2026"))
 
-# —— 虚拟文件系统：允许 Agent 操作的目录白名单 ——
+# —— 虚拟文件系统：免问区（这个范围内随便读写，区外要人逐次授权）——
 FS_ALLOWED_ROOTS = (WORKSPACE_DIR, DATA_DIR)
+
+# —— 命令行 ——
+# run_command 每次调用都走人工审批（卡片上原样显示命令），所以默认开启。
+# 想彻底关掉就把 .env 里的 HARNESS_ALLOW_SHELL 设成 0。
+ALLOW_SHELL = os.getenv("HARNESS_ALLOW_SHELL", "1").strip().lower() not in ("0", "false", "no")
 
 # —— 审计日志 ——
 AUDIT_LOG = CACHE_DIR / "audit.jsonl"

@@ -1,11 +1,12 @@
-"""启动 HTTP 服务（业务界面 + 运行时控制台共用一个端口）。
+"""启动 HTTP 服务。
 
 用法：
     python scripts/serve.py                 # 默认 127.0.0.1:8000
     python scripts/serve.py 0.0.0.0 8080    # 指定地址与端口
 
-启动后浏览器打开 http://127.0.0.1:8000     —— 业务界面（记账/审核/对账/报表）
-                  http://127.0.0.1:8000/console —— Agent 执行链路与审批面板
+启动后浏览器打开 http://127.0.0.1:8000 —— 产品界面
+（记账 / 审核 / 对账 / 报表 / 财务分析，以及和 Agent 的对话；
+ 需要你批准或回答的卡片会直接弹在对话里）
 """
 
 from __future__ import annotations
@@ -23,8 +24,7 @@ def main() -> None:
     host = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
     port = int(sys.argv[2]) if len(sys.argv) > 2 else 8000
     print(f"服务启动：http://{host}:{port}")
-    print("  业务界面    /                       记账 / 审核 / 对账 / 报表 / 财务分析")
-    print("  运行时控制台 /console                实时链路 + 审批面板")
+    print("  产品界面    /                       记账 / 审核 / 对账 / 报表 / 对话")
     print("  业务接口    /api/v1/*               由业务层提供")
     print("  提交任务    POST /runs")
     print("  事件流      GET  /runs/{id}/events  (SSE)")

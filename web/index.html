@@ -117,6 +117,65 @@
   .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center}
   select{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff}
   #reconcileResult{background:#fff;border-radius:10px;padding:18px;margin-top:16px;white-space:pre-wrap;font-size:14px;line-height:1.8;box-shadow:0 1px 3px rgba(0,0,0,.06);min-height:80px}
+
+  /* ── Agent 回答里的 markdown：答案本身有标题和表格，纯文本堆着读不动 ── */
+  .bubble.md{white-space:normal}
+  .bubble.md h1{font-size:17px;margin:12px 0 7px}
+  .bubble.md h2{font-size:15px;margin:13px 0 6px}
+  .bubble.md h3{font-size:14px;margin:11px 0 5px;color:#374151}
+  .bubble.md p{margin:6px 0}
+  .bubble.md ul,.bubble.md ol{margin:6px 0;padding-left:20px}
+  .bubble.md li{margin:2px 0}
+  .bubble.md code{background:#e8edf3;border-radius:4px;padding:1px 5px;font-size:12.5px}
+  .bubble.md pre{background:#eef2f7;border-radius:8px;padding:10px 12px;overflow:auto}
+  .bubble.md pre code{background:none;padding:0}
+  .bubble.md table{border-collapse:collapse;margin:9px 0;font-size:12.5px;width:100%}
+  .bubble.md th,.bubble.md td{border:1px solid #d8dee6;padding:5px 9px;text-align:left}
+  .bubble.md th{background:#e8edf3;font-weight:600}
+  .bubble.md hr{border:none;border-top:1px solid #d8dee6;margin:12px 0}
+  .bubble.md blockquote{border-left:3px solid #cbd5e1;margin:8px 0;padding-left:11px;color:#64748b}
+
+  /* 执行中：让用户知道它还在跑，而不是卡住了 */
+  .typing{color:#64748b}
+  .typing::after{content:'▍';animation:blink 1s step-end infinite;margin-left:2px}
+  @keyframes blink{50%{opacity:0}}
+  .live-act{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+  .live-act span{font-size:11px;padding:2px 9px;border-radius:10px;
+    background:#e0e7ff;color:#3730a3;animation:fade .3s}
+  @keyframes fade{from{opacity:0;transform:translateY(2px)}to{opacity:1}}
+
+  /* ── 需要你操作：授权 / 批准 / 回答。这是内控发生的地方，得显眼 ── */
+  .ask{max-width:88%;background:#fffbeb;border:1.5px solid #f0c36d;border-radius:12px;
+    padding:13px 15px;font-size:13.5px;line-height:1.6;margin:2px 0 10px 4px}
+  .ask.warn{background:#fef2f2;border-color:#f0a8a8}
+  .ask .hd{font-weight:600;color:#92400e;margin-bottom:7px;display:flex;
+    align-items:center;gap:7px;flex-wrap:wrap}
+  .ask.warn .hd{color:#991b1b}
+  .ask .risk{font-size:11px;border-radius:5px;padding:1px 7px;font-weight:600;
+    background:#fee2e2;color:#b91c1c}
+  .ask .risk.medium{background:#fef3c7;color:#b45309}
+  .ask .risk.low{background:#dcfce7;color:#15803d}
+  .ask .cmd{background:#1f2937;color:#e5e7eb;border-radius:7px;padding:9px 12px;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+    margin:8px 0;white-space:pre-wrap;word-break:break-all}
+  .ask .btns{display:flex;gap:9px;margin-top:11px;flex-wrap:wrap}
+  .ask button{border-radius:7px;padding:7px 17px;font-size:13px;cursor:pointer;border:1px solid transparent}
+  .ask button.allow{background:#059669;color:#fff}
+  .ask button.deny{background:#fff;color:#b91c1c;border-color:#f0a8a8}
+  .ask .ans{display:flex;gap:8px;margin-top:9px}
+  .ask .ans input{flex:1;padding:7px 11px;border:1px solid #e5c07b;border-radius:7px;font-size:13px}
+  .ask .ans input:focus{outline:none;border-color:#d97706}
+  .ask .opt{display:inline-block;background:#fff;border:1px solid #e5c07b;border-radius:14px;
+    padding:3px 11px;margin:0 6px 6px 0;cursor:pointer;font-size:12.5px}
+  .ask .opt:hover{border-color:#d97706;background:#fff7e6}
+  .ask .cd{color:#a16207;font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+  .ask.done{background:#f8fafc;border-color:#e2e8f0}
+  .ask.done .hd{color:#64748b}
+
+  /* 看它怎么做的：指向离线链路时间线 */
+  .trace-link{display:inline-block;margin:6px 0 0 4px;font-size:12px;color:#2563eb;
+    text-decoration:none;border-bottom:1px dashed #93c5fd}
+  .trace-link:hover{color:#1d4ed8}
 </style>
 </head>
 <body>
@@ -1511,6 +1570,168 @@ function onChatFilePicked() {
     : '';
 }
 
+/* ══════════ 异步对话：Agent 可以中途停下来等人 ══════════
+   为什么不是一问一答：Agent 要入账得会计点头、科目拿不准得问业务性质，
+   这些都要**停下来等人**。同步 HTTP 挂不了几分钟，所以走
+   提交任务 → SSE 推事件 → 有需要就在对话里弹卡片 → 拿结论。
+*/
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let TOOL_LABELS = {};
+fetch('/tools').then(r=>r.json())
+  .then(d => d.tools.forEach(t => TOOL_LABELS[t.name] = t.label || t.name))
+  .catch(()=>{});
+const labelOf = n => TOOL_LABELS[n] || n;
+
+/* 极简 markdown：回答里有标题、表格、列表，纯文本堆着读不动。
+   不引外部库——界面要能离线打开。 */
+function mdRender(src){
+  const L = esc(src).split('\n'); let out = '', i = 0;
+  const inl = s => s.replace(/`([^`]+)`/g,'<code>$1</code>')
+                    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  while (i < L.length){
+    const l = L[i];
+    if (/^```/.test(l)){ const b=[]; i++;
+      while (i<L.length && !/^```/.test(L[i])) b.push(L[i++]); i++;
+      out += `<pre><code>${b.join('\n')}</code></pre>`; continue; }
+    if (/^\s*\|.*\|\s*$/.test(l)){
+      const rows=[]; while(i<L.length && /^\s*\|.*\|\s*$/.test(L[i])) rows.push(L[i++]);
+      const cells = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head=cells(rows[0]); const body=rows.slice(rows[1]&&/^[\s|:-]+$/.test(rows[1])?2:1);
+      out += '<table><thead><tr>'+head.map(c=>`<th>${inl(c)}</th>`).join('')+'</tr></thead><tbody>'
+           + body.map(r=>'<tr>'+cells(r).map(c=>`<td>${inl(c)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+      continue; }
+    let h; if ((h=/^(#{1,4})\s+(.*)$/.exec(l))){ const n=h[1].length;
+      out += `<h${n}>${inl(h[2])}</h${n}>`; i++; continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(l)){ out+='<hr>'; i++; continue; }
+    if (/^\s*>\s?/.test(l)){ out+=`<blockquote>${inl(l.replace(/^\s*>\s?/,''))}</blockquote>`; i++; continue; }
+    if (/^\s*[-*]\s+/.test(l)){ const b=[];
+      while(i<L.length && /^\s*[-*]\s+/.test(L[i])) b.push(L[i++].replace(/^\s*[-*]\s+/,''));
+      out += '<ul>'+b.map(x=>`<li>${inl(x)}</li>`).join('')+'</ul>'; continue; }
+    if (/^\s*\d+[.、]\s*/.test(l)){ const b=[];
+      while(i<L.length && /^\s*\d+[.、]\s*/.test(L[i])) b.push(L[i++].replace(/^\s*\d+[.、]\s*/,''));
+      out += '<ol>'+b.map(x=>`<li>${inl(x)}</li>`).join('')+'</ol>'; continue; }
+    if (!l.trim()){ i++; continue; }
+    out += `<p>${inl(l)}</p>`; i++;
+  }
+  return out;
+}
+
+/* 在对话里插一张"需要你操作"的卡片 */
+function askCard(holder, runId, req, onDone){
+  const isQ = req.kind === 'question';
+  const box = document.createElement('div');
+  box.className = 'ask' + (req.risk === 'high' ? ' warn' : '');
+  const riskTxt = {high:'高风险', medium:'中风险', low:'低风险'}[req.risk || 'low'];
+  let inner;
+  if (isQ){
+    inner = `<div>${esc(req.question)}</div>`;
+    if (req.options && req.options.length)
+      inner += '<div style="margin-top:9px">' +
+        req.options.map(o=>`<span class="opt" data-ans="${esc(o)}">${esc(o)}</span>`).join('') + '</div>';
+    inner += `<div class="ans"><input placeholder="输入回答，回车提交"><button class="allow">回答</button></div>`;
+  } else {
+    const cmd = req.tool === 'run_command' && req.args && req.args.command;
+    const args = req.args && Object.keys(req.args).length
+      ? (cmd ? `<div class="cmd">${esc(req.args.command)}</div>`
+             : `<div style="color:#78716c;font-size:12.5px;margin-top:6px">${esc(JSON.stringify(req.args))}</div>`)
+      : '';
+    inner = `<div>Agent 想调用 <b>${esc(labelOf(req.tool))}</b></div>${args}`
+          + `<div style="color:#78716c;font-size:12.5px;margin-top:6px">${esc(req.reason)}</div>`
+          + `<div class="btns"><button class="allow">允许</button><button class="deny">拒绝</button></div>`;
+  }
+  box.innerHTML = `<div class="hd"><span>⚠</span>${isQ ? '需要你回答' : '需要你批准'}
+      <span class="risk ${esc(req.risk||'low')}">${riskTxt}</span>
+      <span class="cd"></span></div>${inner}`;
+  holder.parentNode.insertBefore(box, holder);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  const settle = (txt, isDeny) => {
+    box.className = 'ask done' + (isDeny ? ' warn' : '');
+    box.innerHTML = `<div class="hd">${txt}</div>`;
+  };
+  const post = body => fetch(`/runs/${runId}/approvals/${req.id}`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(r => { if (!r.ok) throw new Error(r.status); onDone && onDone();
+                 return body; });
+
+  const cd = box.querySelector('.cd');
+  let left = Math.round(req.timeout_sec || 0);
+  let timer = null;
+  if (left > 0){
+    const tick = () => { if (!cd.isConnected) return clearInterval(timer);
+      cd.textContent = `剩余 ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')} 后自动${isQ?'放弃':'拒绝'}`;
+      if (--left < 0) clearInterval(timer); };
+    tick(); timer = setInterval(tick, 1000);
+  }
+  const clear = () => clearInterval(timer);
+
+  if (isQ){
+    const input = box.querySelector('input');
+    const send = v => { if (!v) return; clear();
+      settle(`✓ 已回复：${esc(v)}`); post({answer:v, approved:true, decider:'会计'}); };
+    box.querySelector('button.allow').onclick = () => send(input.value.trim());
+    input.onkeydown = e => { if (e.key === 'Enter') send(input.value.trim()); };
+    box.querySelectorAll('.opt').forEach(el => el.onclick = () => send(el.dataset.ans));
+    setTimeout(()=>input.focus(), 40);
+  } else {
+    box.querySelector('button.allow').onclick = () => { clear();
+      settle('✓ 已允许'); post({approved:true, decider:'会计', note:'界面批准'}); };
+    box.querySelector('button.deny').onclick = () => { clear();
+      settle('✗ 已拒绝', true); post({approved:false, decider:'会计', note:'界面拒绝'}); };
+  }
+}
+
+/* 跟着一次运行的 SSE，把它画进对话里 */
+function followRun(runId, holder, bubble){
+  const row = document.createElement('div');
+  row.className = 'live-act';
+  holder.insertBefore(row, bubble);
+  let timedOut = false;
+  const guard = setTimeout(()=>{ timedOut = true; }, 10 * 60 * 1000);
+
+  const es = new EventSource(`/runs/${runId}/events`);
+  es.onmessage = ev => {
+    let d; try { d = JSON.parse(ev.data); } catch(_) { return; }
+    if (d.type === 'span' && d.kind === 'tool'){
+      const sp = document.createElement('span');
+      sp.textContent = labelOf(d.name);
+      row.appendChild(sp);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    } else if (d.type === 'human_request'){
+      bubble.innerHTML = '<span class="typing">等你处理上面那张卡片…</span>';
+      askCard(holder, runId, d.request);
+    } else if (d.type === 'done'){
+      clearTimeout(guard); es.close();
+      bubble.classList.add('md');
+      bubble.innerHTML = mdRender(d.answer || '（没有产出结论）');
+      if (d.trace_id){
+        const a = document.createElement('a');
+        a.className = 'trace-link'; a.target = '_blank';
+        a.href = `/traces/${d.trace_id}`;
+        a.textContent = '↗ 看它怎么做的（执行链路时间线）';
+        holder.appendChild(a);
+      }
+      finishTurn();
+    } else if (d.type === 'error'){
+      clearTimeout(guard); es.close();
+      bubble.textContent = '运行失败：' + (d.error || '未知错误');
+      finishTurn();
+    }
+  };
+  es.onerror = () => {
+    if (timedOut){ es.close(); bubble.textContent = '连接中断'; finishTurn(); }
+  };
+}
+
+function finishTurn(){
+  document.getElementById('sendBtn').disabled = false;
+  chatInput.focus();
+  loadConversations();     // 标题可能更新了
+  updatePendingBadge && updatePendingBadge();
+}
+
 async function sendChat() {
   const msg = chatInput.value.trim();
   const fileInput = document.getElementById('chatFile');
@@ -1522,7 +1743,16 @@ async function sendChat() {
   addMsg('user', msg + (file ? `\n📎 ${file.name}` : ''));
   chatInput.value = '';
   const btn = document.getElementById('sendBtn'); btn.disabled = true;
-  const bubble = addMsg('ai', '思考中…（可能需要几十秒）');
+
+  const holder = document.createElement('div');
+  holder.className = 'msg ai';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<span class="typing">思考中…</span>';
+  holder.appendChild(bubble);
+  chatBox.appendChild(holder);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
   try {
     // 用 FormData 才能带文件
     const fd = new FormData();
@@ -1532,13 +1762,15 @@ async function sendChat() {
 
     const r = await fetch('/api/v1/chat', { method:'POST', body: fd });
     const data = await r.json();
-    bubble.textContent = data.answer || data.message || data.detail || '出错了';
-    addActions(bubble.parentNode, data.tool_calls, data.kind);
+    if (!r.ok){ bubble.textContent = data.detail || '出错了'; finishTurn(); return; }
+
     fileInput.value = '';
     document.getElementById('chatFileHint').textContent = '';
-    loadConversations();  // 标题可能更新了
-  } catch(e) { bubble.textContent = '请求失败：' + e; }
-  finally { btn.disabled = false; chatInput.focus(); }
+    followRun(data.run_id, holder, bubble);
+  } catch(e) {
+    bubble.textContent = '请求失败：' + e;
+    finishTurn();
+  }
 }
 chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
 

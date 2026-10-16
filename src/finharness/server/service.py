@@ -21,6 +21,7 @@ import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 
 from ..assemble import build_harness
 from ..observability.trace import Trace
@@ -67,6 +68,17 @@ class RunRecord:
         }
 
 
+@lru_cache(maxsize=1)
+def shared_manager() -> "RunManager":
+    """进程内唯一的运行管理器。
+
+    业务接口（提问 → 起一次运行）和查询接口（看运行状态、推事件、批准）
+    必须操作同一份 runs，否则前脚起的任务后脚就查不到。
+    所以这里给一个单例，两边都从这儿拿。
+    """
+    return RunManager()
+
+
 class RunManager:
     """任务管理 + 会话管理。
 
@@ -91,12 +103,26 @@ class RunManager:
         self._gates: dict[str, ApprovalGate] = {}
         self._bundles: dict[str, dict] = {}
         self._conversations: dict[str, dict] = {}
+        # 业务界面用的会话存在数据库里，不由这里管。这两个字典是"借用"通道：
+        #   _histories  外部传进来的历史（聊天界面已经存在库里的那几轮）
+        #   _on_done    跑完后的回调（把结论写回库）
+        # 放在 RunManager 外面而不是塞进 RunRecord，是因为它们不可序列化，
+        # 而 RunRecord 要 to_dict 出去给前端。
+        self._histories: dict[str, list[dict]] = {}
+        self._on_done: dict[str, object] = {}
         self._lock = threading.Lock()
         self._max_runs = max_runs
         self._max_conversations = max_conversations
 
     # —— 生命周期 ——
-    def start(self, goal: str, conversation_id: str | None = None) -> RunRecord:
+    def start(self, goal: str, conversation_id: str | None = None,
+              history: list[dict] | None = None, on_done=None) -> RunRecord:
+        """起一次运行。
+
+        history / on_done 是给业务聊天界面用的：那边的会话存在数据库，
+        历史得由调用方传进来，结论也得由调用方写回去。
+        不传就走本进程内存里的会话（/runs 直接提交任务的用法）。
+        """
         with self._lock:
             cid = conversation_id or f"conv-{uuid.uuid4().hex[:8]}"
             conv = self._conversations.setdefault(
@@ -108,6 +134,10 @@ class RunManager:
                             conversation_id=cid, turn=conv["turns"])
             self.runs[rec.run_id] = rec
             self._queues[rec.run_id] = queue.Queue()
+            if history is not None:
+                self._histories[rec.run_id] = history
+            if on_done is not None:
+                self._on_done[rec.run_id] = on_done
             if len(self.runs) > self._max_runs:
                 for rid in sorted(self.runs, key=lambda r: self.runs[r].created)[: -self._max_runs]:
                     self._forget(rid)
@@ -136,6 +166,8 @@ class RunManager:
         self._queues.pop(run_id, None)
         self._gates.pop(run_id, None)
         self._bundles.pop(run_id, None)
+        self._histories.pop(run_id, None)
+        self._on_done.pop(run_id, None)
 
     def get(self, run_id: str) -> RunRecord | None:
         return self.runs.get(run_id)
@@ -258,8 +290,12 @@ class RunManager:
             )
 
             # 多轮追问：把既有会话历史接上，而不是从零开始
-            conv = self._conversations.get(rec.conversation_id) or {"messages": []}
-            history = list(conv["messages"])
+            external = self._histories.pop(rec.run_id, None)
+            if external is not None:
+                history = list(external)
+            else:
+                conv = self._conversations.get(rec.conversation_id) or {"messages": []}
+                history = list(conv["messages"])
             if history:
                 self._emit(rec.run_id, {"type": "resumed",
                                         "history_messages": len(history),
@@ -267,11 +303,14 @@ class RunManager:
 
             result = bundle["agent"].run(rec.goal, history=history)
 
-            # 存回会话，供下一轮追问接着用
-            with self._lock:
-                c = self._conversations.get(rec.conversation_id)
-                if c is not None:
-                    c["messages"] = result.messages
+            # 存回会话，供下一轮追问接着用。
+            # 外来的历史（业务聊天走数据库）不回写——那边的库才是唯一真相，
+            # 写回这份内存副本只会造出两个会漂移的历史。
+            if external is None:
+                with self._lock:
+                    c = self._conversations.get(rec.conversation_id)
+                    if c is not None:
+                        c["messages"] = result.messages
 
             rec.answer = result.answer
             rec.turns = result.turns
@@ -309,3 +348,11 @@ class RunManager:
             rec.finished = time.time()
             self._checkpoint(rec)      # 失败也要留快照，否则查不出崩在哪
             self._emit(rec.run_id, {"type": "error", "error": rec.error})
+        finally:
+            self._histories.pop(rec.run_id, None)
+            hook = self._on_done.pop(rec.run_id, None)
+            if hook is not None:
+                try:
+                    hook(rec)          # 业务聊天靠它把结论写回数据库
+                except Exception:      # noqa: BLE001 —— 回调失败不该污染运行结果
+                    pass
