@@ -168,6 +168,17 @@
   .ask .opt{display:inline-block;background:#fff;border:1px solid #e5c07b;border-radius:14px;
     padding:3px 11px;margin:0 6px 6px 0;cursor:pointer;font-size:12.5px}
   .ask .opt:hover{border-color:#d97706;background:#fff7e6}
+  /* 选项列表：带序号、整行可点，和「其他」输入框并存——
+     给选项是为了快，留输入框是为了不把答案堵死 */
+  .ask .opts{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px}
+  .ask button.opt{display:flex;align-items:center;gap:9px;text-align:left;width:100%;
+    background:#fff;border:1px solid #e5c07b;border-radius:8px;padding:8px 12px;
+    font-size:13px;cursor:pointer;color:#3f3f46;margin:0}
+  .ask button.opt:hover{border-color:#d97706;background:#fff7e6}
+  .ask button.opt b{display:inline-flex;align-items:center;justify-content:center;
+    width:18px;height:18px;border-radius:5px;background:#fef3c7;color:#a16207;
+    font-size:11px;font-weight:600;flex:none}
+  .ask .ans-label{color:#a16207;font-size:12.5px;align-self:center;flex:none}
   .ask .cd{color:#a16207;font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
   .ask.done{background:#f8fafc;border-color:#e2e8f0}
   .ask.done .hd{color:#64748b}
@@ -1551,6 +1562,27 @@ async function openConversation(id) {
     d.items.forEach(m => addMsg(m.role === 'user' ? 'user' : 'ai', m.content));
   }
   await loadConversations();
+  restorePending(id);
+}
+
+/* 切回会话、或刷新页面后，把**还等着人处理**的卡片重新画出来。
+   没有这一步，一刷新那张卡片就没了——任务卡在服务器上等人，
+   而界面上什么都没有，谁也不知道它在等。 */
+async function restorePending(convId){
+  try {
+    const d = await (await fetch('/runs')).json();
+    const r = (d.runs || []).find(x =>
+      x.conversation_id === convId && x.status === 'awaiting_approval');
+    if (!r) return;
+    const a = await (await fetch(`/runs/${r.run_id}/approvals`)).json();
+    const req = (a.requests || [])[0];
+    if (!req) return;
+    const holder = document.createElement('div');
+    holder.className = 'msg ai';
+    chatBox.appendChild(holder);
+    askCard(holder, r.run_id, req);      // 和实时那条路走的是同一个函数
+    chatBox.scrollTop = chatBox.scrollHeight;
+  } catch (e) { /* 恢复失败不该影响正常用 */ }
 }
 
 async function deleteConversation(id) {
@@ -1625,12 +1657,17 @@ function askCard(holder, runId, req, onDone){
   box.className = 'ask' + (req.risk === 'high' ? ' warn' : '');
   const riskTxt = {high:'高风险', medium:'中风险', low:'低风险'}[req.risk || 'low'];
   let inner;
+  const opts = (req.options || []).filter(Boolean);
   if (isQ){
     inner = `<div>${esc(req.question)}</div>`;
-    if (req.options && req.options.length)
-      inner += '<div style="margin-top:9px">' +
-        req.options.map(o=>`<span class="opt" data-ans="${esc(o)}">${esc(o)}</span>`).join('') + '</div>';
-    inner += `<div class="ans"><input placeholder="输入回答，回车提交"><button class="allow">回答</button></div>`;
+    if (opts.length)
+      inner += '<div class="opts">' + opts.map((o,i) =>
+        `<button class="opt" data-ans="${esc(o)}"><b>${i+1}</b>${esc(o)}</button>`).join('') + '</div>';
+    // 永远留「其他」：给选项是为了快，不是为了把答案堵死。
+    // 输入框里直接打序号也行——省得回列表里找。
+    inner += `<div class="ans"><span class="ans-label">${opts.length ? '其他：' : '回答：'}</span>
+        <input placeholder="${opts.length ? '直接打序号，或写你自己的答案' : '输入回答，回车提交'}">
+        <button class="allow">提交</button></div>`;
   } else {
     const cmd = req.tool === 'run_command' && req.args && req.args.command;
     const args = req.args && Object.keys(req.args).length
@@ -1669,11 +1706,20 @@ function askCard(holder, runId, req, onDone){
 
   if (isQ){
     const input = box.querySelector('input');
-    const send = v => { if (!v) return; clear();
-      settle(`✓ 已回复：${esc(v)}`); post({answer:v, approved:true, decider:'会计'}); };
-    box.querySelector('button.allow').onclick = () => send(input.value.trim());
-    input.onkeydown = e => { if (e.key === 'Enter') send(input.value.trim()); };
-    box.querySelectorAll('.opt').forEach(el => el.onclick = () => send(el.dataset.ans));
+    const submit = raw => {
+      const v = (raw || '').trim();
+      if (!v) return;
+      // 输入框里打序号直接命中对应选项——省得回上面找按钮
+      const n = Number(v);
+      const chosen = (opts.length && Number.isInteger(n) && n >= 1 && n <= opts.length)
+        ? opts[n - 1] : v;
+      clear();
+      settle(`✓ 已回复：${esc(chosen)}`);
+      post({answer: chosen, approved: true, decider: '会计'});
+    };
+    box.querySelector('button.allow').onclick = () => submit(input.value);
+    input.onkeydown = e => { if (e.key === 'Enter') submit(input.value); };
+    box.querySelectorAll('.opt').forEach(el => el.onclick = () => submit(el.dataset.ans));
     setTimeout(()=>input.focus(), 40);
   } else {
     box.querySelector('button.allow').onclick = () => { clear();

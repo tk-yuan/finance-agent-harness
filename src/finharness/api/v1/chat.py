@@ -37,6 +37,24 @@ ATTACHMENT_DIR = DATA_DIR / "attachments"
 ALLOWED_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".ofd", ".webp"}
 MAX_FILE_MB = 10
 
+# —— 不在聊天里办的动作 ——
+#
+# **记账必须过会计审核**，这是内控工序，不是一个可以点"允许"的开关。
+# 聊天框里点一下就把账入了，等于把"审计"降级成"点击"——
+# 审核人根本看不到金额对不对、科目定得对不对、附件是哪一张。
+#
+# 真正的审核在「📚 智能会计」页：待审核单据、建议科目、凭证附件、改科目、驳回，
+# 会计该看的、该改的都在那儿。所以这类**改账本状态**的动作在这里直接拒并指路。
+#
+# 注意和"授权类"的区别——跑命令、碰区外文件、看凭证，那些就是一次授权，
+# 没有"工序"可言，在对话里弹卡问人是对的。
+PAGE_ONLY_ACTIONS = {
+    "post_voucher": "审核入账请在「📚 智能会计」页面做——那里能看到金额、建议科目和凭证附件，"
+                    "可以改科目或驳回。聊天里点一下不能代替会计签字。",
+    "reject_voucher": "驳回单据请在「📚 智能会计」页面做，并写明驳回理由（内控要留痕）。",
+    "recategorize": "改科目请在「📚 智能会计」页面做，改完留下痕迹。",
+}
+
 
 @router.post("", summary="向财务助手提问（异步，中途可人工介入）")
 async def chat(
@@ -86,7 +104,8 @@ async def chat(
                 session_id, "assistant", f"（运行失败：{rec.error}）")
 
     rec = shared_manager().start(
-        content, conversation_id=session_id, history=history, on_done=on_done)
+        content, conversation_id=session_id, history=history, on_done=on_done,
+        redirects=PAGE_ONLY_ACTIONS)
 
     return {
         "run_id": rec.run_id,

@@ -217,3 +217,84 @@ def test_ask_user_is_registered_even_without_gate():
     from finharness.assemble import build_harness
     names = build_harness()["registry"].names()
     assert "ask_user" in names
+
+
+def test_ask_user_tool_passes_options_through():
+    """选项要原样传到卡片上——界面靠它渲染成可点的按钮。
+
+    选项是**数组**不是斜杠分隔的字符串：后者模型经常不按格式写，
+    一行里塞进解释就废了。结构化的东西就该用结构化参数。
+    """
+    gate = ApprovalGate(timeout=5)
+    seen = {}
+    gate.notifier = lambda req: (seen.update(req=req),
+                                 threading.Timer(0.05, lambda: gate.resolve(
+                                     req.id, answer="固定资产")).start())
+    r = _ask_tool(gate)("这台彩电该怎么记？", ["固定资产", "库存商品", "职工福利费"])
+    assert seen["req"].options == ["固定资产", "库存商品", "职工福利费"]
+    assert r["answer"] == "固定资产"
+
+
+def test_blank_options_are_dropped():
+    gate = ApprovalGate(timeout=5)
+    seen = {}
+    gate.notifier = lambda req: (seen.update(req=req),
+                                 threading.Timer(0.05, lambda: gate.resolve(
+                                     req.id, answer="A")).start())
+    _ask_tool(gate)("选哪个？", ["A", "  ", "", "B"])
+    assert seen["req"].options == ["A", "B"], "空选项会渲染成空按钮，必须丢掉"
+
+
+def test_ask_user_without_options_still_works():
+    """没有可枚举的答案时就是个纯开放问题——留白也是合法用法。"""
+    gate = ApprovalGate(timeout=5)
+    seen = {}
+    gate.notifier = lambda req: (seen.update(req=req),
+                                 threading.Timer(0.05, lambda: gate.resolve(
+                                     req.id, answer="照旧")).start())
+    _ask_tool(gate)("这笔怎么处理？")
+    assert seen["req"].options == []
+
+
+# ═══════════ 不在聊天里办的动作：入账必须去会计界面 ═══════════
+#
+# **记账必须过会计审核**。如果入账在聊天里只是一个能点"允许"的按钮，
+# 审核就降级成了点击——审核人看不到金额对不对、科目定得对不对、附件是哪张。
+# 所以这类**改账本状态**的动作直接拒并指路，让它去「智能会计」页走工序。
+
+def test_page_only_action_is_rejected_with_pointer():
+    from finharness.server.service import _RedirectGate
+    gate = _RedirectGate(ApprovalGate(timeout=5),
+                         {"post_voucher": "请到「📚 智能会计」页面审核"})
+    req = gate.request("post_voucher", {"entry_id": 1}, "高风险", "high")
+    assert req.status == "rejected"
+    assert "智能会计" in req.note
+
+
+def test_authorization_actions_still_ask():
+    """跑命令、碰区外文件是**授权**不是**工序**——照常在对话里弹卡问人。"""
+    from finharness.server.service import _RedirectGate
+    inner = ApprovalGate(timeout=5)
+    seen = []
+    inner.notifier = lambda req: (seen.append(req),
+                                  threading.Timer(0.05, lambda: inner.resolve(
+                                      req.id, approved=True, decider="t")).start())
+    gate = _RedirectGate(inner, {"post_voucher": "去页面"})
+    req = gate.request("run_command", {"command": "ls"}, "高风险", "high")
+    assert req.status == "approved"
+    assert len(seen) == 1, "非页面专属动作必须真的问过人"
+
+
+def test_chat_run_declares_which_actions_are_page_only():
+    from finharness.api.v1.chat import PAGE_ONLY_ACTIONS
+    for t in ("post_voucher", "reject_voucher", "recategorize"):
+        assert t in PAGE_ONLY_ACTIONS, t
+    # 授权类不该被塞进来
+    for t in ("run_command", "read_image", "ask_user"):
+        assert t not in PAGE_ONLY_ACTIONS, t
+
+
+def test_prompt_forbids_claiming_it_booked():
+    """提示词里必须写死：登记完只能说"待审核"，不许说"已经记好了"。"""
+    from finharness.assemble import MAIN_SYSTEM
+    assert "不许说" in MAIN_SYSTEM and "已入账" in MAIN_SYSTEM

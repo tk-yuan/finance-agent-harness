@@ -31,6 +31,9 @@ _DESCRIPTION = (
     "  · 该用：业务性质类——这笔采购算办公费还是成本、这张票是不是重复报销、这笔款对应哪个合同\n"
     "  · 不该用：能查的一律自己查（余额、往来、账目、准则都查得到）；"
     "用户已经在话里说过的不要重复问；一次只问一个最关键的\n"
+    "**答案能列成几个选项时，一定要给 `options`**——"
+    "界面会把它们渲染成可点的按钮，用户点一下就行，比打字快也不容易答偏；"
+    "但**永远要允许他自己写**，所以选项要列全，别把可能的答案堵死。\n"
     "提完会**阻塞等待**，用户回答后你拿到答案继续。如果没人回答，"
     "你要基于现有信息做出合理假设，并在结论里显式标注哪部分是假设。"
 )
@@ -43,8 +46,9 @@ _PARAMS = {
             "description": "要问的问题。说清楚你为什么拿不准——只问「这个记哪个科目」而不给上下文，用户没法回答。",
         },
         "options": {
-            "type": "string",
-            "description": "可选：备选项，用 / 分隔，例如「办公费/主营业务成本/固定资产」。给了会更方便回答。",
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "备选项（2~5 个为宜）。界面会渲染成可点的按钮，同时保留自己输入的入口。",
         },
     },
     "required": ["question"],
@@ -59,13 +63,13 @@ def register_human_tools(registry: ToolRegistry, gate=None) -> None:
     工具池形状就不一样了，接线测试也就失去意义。
     """
 
-    def ask_user(question: str, options: str = "") -> dict:
+    def ask_user(question: str, options: list[str] | None = None) -> dict:
         if gate is None:
             return {
                 "error": "当前环境没有可交互的用户，请基于现有信息做出合理假设，"
                          "并在结论里显式标注这是假设。"
             }
-        opts = [o.strip() for o in options.split("/") if o.strip()] if options else []
+        opts = [str(o).strip() for o in (options or []) if str(o).strip()]
         req = gate.ask(question, opts)
         if req.status == "answered" and req.answer.strip():
             return {"ok": True, "answer": req.answer.strip(),

@@ -68,6 +68,56 @@ class RunRecord:
         }
 
 
+class _RedirectGate:
+    """把「该去专业界面做」的动作直接拒掉，其余的照常弹卡问人。
+
+    ## 为什么需要它
+
+    入账（`post_voucher`）是**会计的签字动作**。如果它在聊天框里只是一个
+    可以点"允许"的按钮，审核就降级成了点一下——**记什么科目、金额对不对、
+    附件是哪张**，点按钮的人根本看不到。
+
+    真正的审核在「智能会计」页：那里列着待审核单据的金额、建议科目、凭证附件，
+    能改科目、能驳回，走的是会计的实际工序。所以从聊天里发起的运行，
+    这类动作**直接拒绝并把人指过去**，而不是给一个快捷方式。
+
+    ## 和别的审批有什么区别
+
+      · 跑命令、碰区外文件 → **在这里问就行**（就是一次授权，没有"工序"）
+      · 入账             → **必须去会计界面**（那是一道内控工序，不是一个开关）
+    """
+
+    def __init__(self, inner: ApprovalGate, redirects: dict[str, str]) -> None:
+        self.inner = inner
+        self.redirects = redirects
+        self.timeout = inner.timeout
+        self.notifier = inner.notifier
+
+    def requires(self, tool, args: dict):
+        return self.inner.requires(tool, args)
+
+    def request(self, tool_name: str, args: dict, reason: str, risk: str = "medium"):
+        hint = self.redirects.get(tool_name)
+        if hint is not None:
+            from ..runtime.approval import ApprovalRequest
+            req = ApprovalRequest(id=f"ap-{uuid.uuid4().hex[:8]}", tool=tool_name,
+                                  args=args, reason=reason, risk=risk)
+            req.status = "rejected"
+            req.note = hint
+            req.decided = time.time()
+            return req
+        return self.inner.request(tool_name, args, reason, risk)
+
+    def resolve(self, *a, **kw) -> bool:
+        return self.inner.resolve(*a, **kw)
+
+    def pending(self):
+        return self.inner.pending()
+
+    def history(self):
+        return self.inner.history()
+
+
 @lru_cache(maxsize=1)
 def shared_manager() -> "RunManager":
     """进程内唯一的运行管理器。
@@ -110,13 +160,15 @@ class RunManager:
         # 而 RunRecord 要 to_dict 出去给前端。
         self._histories: dict[str, list[dict]] = {}
         self._on_done: dict[str, object] = {}
+        self._redirects: dict[str, dict[str, str]] = {}
         self._lock = threading.Lock()
         self._max_runs = max_runs
         self._max_conversations = max_conversations
 
     # —— 生命周期 ——
     def start(self, goal: str, conversation_id: str | None = None,
-              history: list[dict] | None = None, on_done=None) -> RunRecord:
+              history: list[dict] | None = None, on_done=None,
+              redirects: dict[str, str] | None = None) -> RunRecord:
         """起一次运行。
 
         history / on_done 是给业务聊天界面用的：那边的会话存在数据库，
@@ -138,6 +190,8 @@ class RunManager:
                 self._histories[rec.run_id] = history
             if on_done is not None:
                 self._on_done[rec.run_id] = on_done
+            if redirects:
+                self._redirects[rec.run_id] = dict(redirects)
             if len(self.runs) > self._max_runs:
                 for rid in sorted(self.runs, key=lambda r: self.runs[r].created)[: -self._max_runs]:
                     self._forget(rid)
@@ -168,6 +222,7 @@ class RunManager:
         self._bundles.pop(run_id, None)
         self._histories.pop(run_id, None)
         self._on_done.pop(run_id, None)
+        self._redirects.pop(run_id, None)
 
     def get(self, run_id: str) -> RunRecord | None:
         return self.runs.get(run_id)
@@ -236,6 +291,15 @@ class RunManager:
         )
         return self.start(goal)
 
+    def gate_of(self, run_id: str) -> ApprovalGate | None:
+        """拿到某次运行的人工介入门——用来查"当前在等谁批什么"。
+
+        光有 `pending_approvals`（一串 id）不够：客户端如果**没启动这次运行**、
+        或者刷新了页面，拿到的只有 id，看不到问题和选项。
+        门里存着完整的请求对象，从这里取才是唯一真相。
+        """
+        return self._gates.get(run_id)
+
     def resolve_approval(self, run_id: str, req_id: str, approved: bool = True,
                          decider: str = "", note: str = "", answer: str = "") -> bool:
         gate = self._gates.get(run_id)
@@ -267,6 +331,9 @@ class RunManager:
             trace = Trace(rec.goal, on_event=lambda p: self._emit(rec.run_id, p))
             rec.trace_id = trace.trace_id
             gate = ApprovalGate(notifier=lambda req: self._on_approval_request(rec, req))
+            # 「该去专业界面做」的动作（如入账）不走这里弹卡，直接拒并指路
+            if self._redirects.get(rec.run_id):
+                gate = _RedirectGate(gate, self._redirects[rec.run_id])
             with self._lock:
                 self._gates[rec.run_id] = gate
 
@@ -350,6 +417,7 @@ class RunManager:
             self._emit(rec.run_id, {"type": "error", "error": rec.error})
         finally:
             self._histories.pop(rec.run_id, None)
+            self._redirects.pop(rec.run_id, None)
             hook = self._on_done.pop(rec.run_id, None)
             if hook is not None:
                 try:

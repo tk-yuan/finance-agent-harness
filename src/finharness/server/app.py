@@ -147,10 +147,16 @@ def get_run(run_id: str) -> dict:
 
 @app.get("/runs/{run_id}/approvals")
 def list_approvals(run_id: str) -> dict:
+    """这次运行当前在等谁批什么（审批或提问的完整内容，不只是 id）。"""
     rec = MANAGER.get(run_id)
     if rec is None:
         raise HTTPException(404, f"未知任务 {run_id}")
-    return {"pending": rec.pending_approvals}
+    gate = MANAGER.gate_of(run_id)
+    pending = [asdict(r) for r in gate.pending()] if gate is not None else []
+    timeout = gate.timeout if gate is not None else 0
+    for p in pending:
+        p["timeout_sec"] = timeout
+    return {"pending": rec.pending_approvals, "requests": pending}
 
 
 @app.post("/runs/{run_id}/approvals/{approval_id}")
