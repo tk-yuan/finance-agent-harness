@@ -35,6 +35,7 @@ TOOL_LABELS: dict[str, tuple[str, str]] = {
     "read_file": ("读文件", "fs"),
     "ask_user": ("向你提问", "ask"),
     "read_image": ("看图片", "query"),
+    "remember": ("记经验", "memory"),
     "run_command": ("执行命令", "shell"),
     "task_board": ("看任务板", "delegate"),
     "list_pending": ("查待审核", "query"),

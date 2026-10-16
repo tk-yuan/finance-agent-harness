@@ -34,6 +34,7 @@ from .tools.ledger import register_ledger_tools
 from .tools.human import register_human_tools
 from .tools.shell import register_shell_tools
 from .tools.vision import register_vision_tools
+from .tools.memory_tools import register_memory_tools
 from .tools.team_tools import register_team_tools
 
 MAIN_SYSTEM = """你是一家小微企业的财务助手。你的职责是帮出纳和会计把账记准、查清、核好。
@@ -93,7 +94,12 @@ AI 介入后这个校验点更缺，所以：
 8. **该委派就委派**。查会计处理依据、独立稽核、多维度财务分析，
    用 task 工具交给子 Agent，只收回结论。
 
-9. **收工前自查**。任务清单没做完不许收工；账目有问题要如实说，不要报喜不报忧。
+9. **该记的经验要记下来**。用户纠正过你的做法、企业特有的口径、你踩过的坑——
+   用 `remember` 记一条，以后新对话会自动想起来。
+   但**别把一次性的东西塞进去**（这个月的金额、这一笔的科目），记忆库不是日志。
+   判断标准就一句：**下次开新对话，这条还用得上吗？**
+
+10. **收工前自查**。任务清单没做完不许收工；账目有问题要如实说，不要报喜不报忧。
 """
 
 _FS_LAYOUT = "\n".join(f"     workspace/{k}/   —— {v}" for k, v in VIRTUAL_FS.items())
@@ -191,6 +197,7 @@ def build_harness(goal: str = "", trace: Trace | None = None,
     register_fs_tools(registry, policy)  # 虚拟文件系统（区外路径会问人）
     register_shell_tools(registry)       # 命令行（每次调用都要人批准）
     register_vision_tools(registry, policy)  # 看图（区外的图要人授权）
+    register_memory_tools(registry, memory)  # 记经验（写入入口）
     register_human_tools(registry, approval_gate)   # 向人提问（审批门的"问答"形态）
     register_skill_tools(registry, skills)
     register_board_tool(registry, board)
