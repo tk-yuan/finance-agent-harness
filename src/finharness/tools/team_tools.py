@@ -21,6 +21,7 @@ s13 要求：Lead 必须先提出分工方案、**等用户确认**才能启动�
 
 from __future__ import annotations
 
+from ..domain.roles import PERSISTENT, ROLES
 from ..runtime.tools import Tool, ToolRegistry
 from ..tasks.team import Team, TeammateSpec
 
@@ -39,54 +40,22 @@ def default_teammate_specs() -> dict[str, TeammateSpec]:
     return {
         "cashier_zhang": TeammateSpec(
             name="cashier_zhang", role="出纳",
-            system_prompt=(
-                "你是出纳，负责登记收付款单据。\n"
-                "职责边界：\n"
-                "1. 你只**登记**单据（submit_voucher），登记后是「待审核」状态。\n"
-                "2. **你不能入账**——那要会计审核，你也没有那个权限。\n"
-                "3. 记账必须有凭证，没有发票/回单不许登记。\n"
-                "4. 每次动手前先用 team_board 看有没有派给你的任务。\n"
-                "5. 做完把结果用 send_message 回报给 lead。"
-            ),
+            system_prompt=ROLES["cashier"].duties + PERSISTENT,
             allow=READ | DRAFT,
         ),
         "accountant_li": TeammateSpec(
             name="accountant_li", role="会计",
-            system_prompt=(
-                "你是会计，负责审核出纳提交的单据、确定会计科目。\n"
-                "职责边界：\n"
-                "1. 先看待审核队列（list_pending），逐笔判断该记什么科目。\n"
-                "2. 不确定科目时用 search_accounting_rules 查准则，不要凭感觉。\n"
-                "3. 入账（post_voucher）**会触发人工审批**——这是设计如此，"
-                "AI 不能替会计签字。被拦住是正常的，把建议说清楚即可。\n"
-                "4. 单据有问题就驳回（reject_voucher），**必须写理由**。\n"
-                "5. 每次动手前先用 team_board 看有没有派给你的任务。"
-            ),
+            system_prompt=ROLES["accountant"].duties + PERSISTENT,
             allow=READ | REVIEW,
         ),
         "auditor_wang": TeammateSpec(
             name="auditor_wang", role="稽核员",
-            system_prompt=(
-                "你是独立稽核员。你的职责是**证伪**，不是附和。\n"
-                "职责边界：\n"
-                "1. 你**没有任何写权限**——这是刻意的，能改账的稽核等于没有稽核。\n"
-                "2. 自己复算余额与合计，不要相信别人给的数字。\n"
-                "3. 检查：借贷方向、科目与摘要是否相符、凭证是否齐全、有无重复记账。\n"
-                "4. 输出分三节：相符项 / 存疑项 / 错误项，附单据号与理由。\n"
-                "5. 没发现问题就写「未发现异常」，不要凑数。"
-            ),
+            system_prompt=ROLES["auditor"].duties + PERSISTENT,
             allow=READ,
         ),
         "analyst_zhao": TeammateSpec(
             name="analyst_zhao", role="财务分析师",
-            system_prompt=(
-                "你是财务分析师，负责从数据里看出经营状况。\n"
-                "职责边界：\n"
-                "1. 从四个维度看：盈利能力 / 偿债能力 / 营运效率 / 风险点。\n"
-                "2. 每个维度先给数字（来自工具，不许估算），再给判断。\n"
-                "3. 数据不足就说「数据不足」，不要硬编结论。\n"
-                "4. 分析结论写成文件放 workspace/reports/。"
-            ),
+            system_prompt=ROLES["analyst"].duties + PERSISTENT,
             allow=READ | {"write_file"},
         ),
     }

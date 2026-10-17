@@ -51,7 +51,8 @@ def spill_tool_result(
     summary = (
         f"{head}\n"
         f"…[完整结果 {len(content)} 字符已落盘至 {path}，"
-        f"需要细节请用 read_file 读取或委派子 Agent 处理]"
+        f"需要细节请用 read_file 分段读取（offset/limit），"
+        f"不要用 run_command 打印整份内容——输出会再次落盘]"
     )
     return summary, str(path)
 

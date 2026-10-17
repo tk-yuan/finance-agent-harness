@@ -187,3 +187,30 @@ def test_loop_handles_model_error():
     result = agent.run("目标")
     assert result.stop_reason == "model_error"
     assert "中止" in result.answer
+
+
+# —— 队友回报只投递给主 Agent ——
+class _FakeTeam:
+    def __init__(self):
+        self.calls = 0
+
+    def consume_results(self):
+        self.calls += 1
+        return [{"from": "auditor_wang", "type": "task_result", "content": "稽核完成"}]
+
+    def drain_events(self):
+        return []
+
+
+def test_team_results_are_not_delivered_to_teammate(tmp_path):
+    """队友也在跑同一套 Hook；让它消费 lead 的收件箱，会把给主 Agent 的回报吃掉。"""
+    fake = _FakeTeam()
+    h = build_hooks(base_prompt="基础提示",
+                    memory=LayeredMemory(tmp_path / "m.jsonl"),
+                    board=TaskBoard(), team=fake)
+
+    h.run("before_model", {"messages": [], "state": RunState(depth=1), "goal": ""})
+    assert fake.calls == 0
+
+    h.run("before_model", {"messages": [], "state": RunState(depth=0), "goal": ""})
+    assert fake.calls == 1

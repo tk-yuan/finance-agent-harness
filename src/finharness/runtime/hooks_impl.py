@@ -89,9 +89,11 @@ def build_hooks(
         # 后台任务的结果、队友的回报、定时任务的触发，都不能由它们自己塞进上下文
         # （跑完的时机不可控，会打断正在进行的推理）。
         # 统一由这里在**下一轮模型调用前**注入，时机由运行时决定。
-        if team is not None:
+        if team is not None and is_main:
             # 别覆盖 msgs：那是累积的对话历史。覆盖掉模型就只剩 system 提示，
             # 于是每轮重复同样的探索性调用直到跑满轮数（本项目实测踩过）。
+            # 只给主 Agent 投递：队友自己也在跑同一套 Hook，让它消费 lead 的收件箱
+            # 会把本该给主 Agent 的回报吃掉（实测队友因此跑满轮数）。
             team_msgs = team.consume_results()
             if team_msgs:
                 lines = [f"- {m['from']}（{m['type']}）：{m['content'][:400]}" for m in team_msgs]
@@ -102,7 +104,7 @@ def build_hooks(
                 if trace is not None:
                     trace.event("team", f"团队事件 ×{len(evs)}")
 
-        if background is not None:
+        if background is not None and is_main:
             done = background.drain_notifications()
             if done:
                 lines = []
@@ -172,6 +174,11 @@ def build_hooks(
     def _after_tool(ctx: dict) -> dict:
         name, result = ctx["name"], ctx.get("result")
         import json
+
+        # read_file 的结果已按 limit 截断（上限低于落盘阈值）。再落盘会让模型
+        # "读文件 → 又落盘 → 再读"，永远拿不到内容——实测跑满 40 轮就是这么来的。
+        if name == "read_file":
+            return None
 
         text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
         summary, path = spill_tool_result(text, name, spill_dir)

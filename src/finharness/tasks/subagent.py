@@ -29,6 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..config import MAX_SUBAGENT_TURNS
+from ..domain.roles import EPHEMERAL, ROLES
 from ..runtime.loop import Agent, RunState
 from ..runtime.tools import Tool, ToolRegistry
 
@@ -54,46 +55,20 @@ def default_specs() -> dict[str, SubagentSpec]:
         "rule_researcher": SubagentSpec(
             name="rule_researcher",
             description="制度研究员：检索会计准则与会计制度，给出某项业务的会计处理依据",
-            system_prompt=(
-                "你是企业会计制度研究员。你的任务是根据会计准则和会计制度，"
-                "说清某项业务**应该怎么处理**、依据是哪一条。\n"
-                "要求：\n"
-                "1. 每条结论都要给出依据：准则名称 + 文号 + 条款序号。\n"
-                "2. 注意**施行日期**——还没生效或已经废止的准则不能用，"
-                "如果检索到的准则尚未施行，必须指出。\n"
-                "3. 查不到就明说查不到，不要凭常识推测规则。\n"
-                "4. 只输出结论与依据，不要复述检索到的原文长段落。"
-            ),
+            system_prompt=ROLES["researcher"].duties + EPHEMERAL,
             allow=READ_ONLY | WRITE_DRAFT,
         ),
         "ledger_auditor": SubagentSpec(
             name="ledger_auditor",
-            description="账务稽核员：独立复核账目，找异常与错漏（只读，不给写权限）",
-            system_prompt=(
-                "你是独立稽核员。你的职责是**证伪**，不是附和。\n"
-                "要求：\n"
-                "1. 逐条检查账目：金额是否合理、借贷方向是否正确、"
-                "科目是否与摘要相符、凭证是否齐全。\n"
-                "2. 特别关注：重复记账、跨期记账、大额异常、缺凭证。\n"
-                "3. 输出分三节：**相符项 / 存疑项 / 错误项**，"
-                "存疑和错误项必须写清理由与涉及的单据号。\n"
-                "4. 你自己算一遍余额和合计，不要相信别人给的数字。\n"
-                "5. 没发现问题的，明确写「未发现异常」，不要凑数。"
-            ),
+            description="账务稽核员（一次性委派）：独立复核指定的这一批账目（只读，不给写权限）",
+            system_prompt=ROLES["auditor"].duties + EPHEMERAL,
             # ★ 稽核员刻意不给任何写权限——能改账的稽核等于没有稽核
             allow=READ_ONLY,
         ),
         "finance_analyst": SubagentSpec(
             name="finance_analyst",
             description="财务分析师：从盈利、偿债、营运、风险四个维度分析经营状况",
-            system_prompt=(
-                "你是财务分析师。基于账目数据给出经营分析。\n"
-                "要求：\n"
-                "1. 从四个维度分别看：**盈利能力 / 偿债能力 / 营运效率 / 风险点**。\n"
-                "2. 每个维度先给数字（来自工具，不许估算），再给判断。\n"
-                "3. 数据不足的维度，直接说「数据不足」，不要硬编结论。\n"
-                "4. 控制在 500 字以内，用要点，不要长篇大论。"
-            ),
+            system_prompt=ROLES["analyst"].duties + EPHEMERAL,
             allow=READ_ONLY | {"write_file"},
         ),
     }

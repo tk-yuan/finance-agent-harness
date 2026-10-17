@@ -9,16 +9,8 @@ Agent 把中间产物落成文件——核算明细、方案清单、对比报�
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from ..runtime.permissions import PermissionDenied
 from ..runtime.tools import Tool, ToolRegistry
-
-
-def _fmt(value, limit: int = 900) -> str:
-    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, default=str)
-    return text if len(text) <= limit else text[:limit] + f"\n…[截断，原长 {len(text)}]"
 
 
 def register_fs_tools(registry: ToolRegistry, policy) -> None:
@@ -41,7 +33,7 @@ def register_fs_tools(registry: ToolRegistry, policy) -> None:
         return {"written": str(p), "mode": "append" if append else "overwrite",
                 "chars_added": len(content), "total_bytes": size}
 
-    def read_file(path: str, limit: int = 4000) -> dict:
+    def read_file(path: str, offset: int = 0, limit: int = 1500) -> dict:
         try:
             p = policy.check_path(path)
         except PermissionDenied as e:
@@ -49,7 +41,15 @@ def register_fs_tools(registry: ToolRegistry, policy) -> None:
         if not p.exists():
             return {"error": f"文件不存在：{path}"}
         text = p.read_text(encoding="utf-8", errors="replace")
-        return {"path": str(p), "chars": len(text), "content": _fmt(text, limit)}
+        # 上限必须低于落盘阈值（2000 字符）：读出来的结果本身再被落盘，
+        # 模型就会陷入"读文件→又落盘→再读"的死循环。
+        limit = max(1, min(int(limit), 1800))
+        offset = max(0, int(offset))
+        out = {"path": str(p), "chars": len(text), "offset": offset,
+               "content": text[offset:offset + limit]}
+        if offset + limit < len(text):
+            out["next_offset"] = offset + limit
+        return out
 
     def list_dir(path: str = ".") -> dict:
         try:
@@ -97,10 +97,17 @@ def register_fs_tools(registry: ToolRegistry, policy) -> None:
     ))
     registry.register(Tool(
         name="read_file",
-        description="读取工作区文件内容。",
+        description="读取工作区文件内容。可分页读：返回里有 next_offset 就说明还有后续，"
+                    "用 offset=next_offset 接着读。",
         parameters={
             "type": "object",
-            "properties": {"path": {"type": "string"}, "limit": {"type": "integer", "default": 4000}},
+            "properties": {
+                "path": {"type": "string"},
+                "offset": {"type": "integer", "default": 0,
+                           "description": "从第几个字符开始读"},
+                "limit": {"type": "integer", "default": 1500,
+                          "description": "本次最多读多少字符（上限 1800）"},
+            },
             "required": ["path"],
         },
         handler=read_file, read_only=True, category="fs",
