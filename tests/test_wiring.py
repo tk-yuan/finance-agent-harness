@@ -101,3 +101,23 @@ def test_mcp_tools_are_merged_into_pool():
     assert bundle["mcp_tools"], "MCP 工具没有被并入工具池"
     for n in bundle["mcp_tools"]:
         assert bundle["registry"].get(n) is not None
+
+
+def test_team_audit_routes_are_mounted():
+    """全面稽核是产品入口，不能被路由汇总漏掉。"""
+    from finharness.server.app import app
+
+    paths = set()
+
+    def collect(routes):
+        for r in routes:
+            p = getattr(r, "path", None)
+            if p:
+                paths.add(p)
+            sub = getattr(r, "routes", None)
+            if sub:
+                collect(sub)
+
+    collect(app.routes)
+    assert "/api/v1/audit/team" in paths
+    assert "/api/v1/audit/team/{job_id}" in paths

@@ -69,7 +69,8 @@ jobs:
               return out
 
           paths = collect(app.routes) | set(app.openapi().get('paths', {}))
-          for need in ('/api/v1/chat', '/runs/{run_id}/events', '/traces/{trace_id}', '/'):
+          for need in ('/api/v1/chat', '/api/v1/audit/team', '/runs/{run_id}/events',
+                       '/traces/{trace_id}', '/'):
               assert need in paths, '缺少路由 ' + need
           print('路由', len(paths), '条 | 业务 + 运行时 均已装配')
           "

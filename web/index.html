@@ -502,6 +502,25 @@
       账实相符就是：<b>账上记的钱，和现实里实际有多少，对不对得上</b>。
     </p>
 
+    <div class="chart-box" style="margin-bottom:16px">
+      <h3>全面稽核（常驻稽核员）</h3>
+      <p style="font-size:13px;color:#6b7280;margin:8px 0 12px">
+        结账前让一位<b>只读</b>的稽核员把整期账目核一遍：借贷方向、科目与摘要、
+        凭证是否齐全、有没有重复记账。<br>
+        它在<b>独立上下文</b>里跑，过程不进对话；<b>没有任何写权限</b>——能改账的稽核等于没有稽核。
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="margin:0"><label>稽核期间</label>
+          <select id="auditPeriod" style="width:130px"></select></div>
+        <button class="primary" id="auditBtn" style="padding:11px 20px"
+                onclick="startTeamAudit()">招稽核员做全面稽核</button>
+        <span id="auditStatus" style="font-size:13px;color:#6b7280"></span>
+      </div>
+      <div id="auditResult" style="display:none;margin-top:14px;background:#fff;border-radius:10px;
+           padding:16px;white-space:pre-wrap;font-size:13.5px;line-height:1.8;
+           box-shadow:0 1px 3px rgba(0,0,0,.06)"></div>
+    </div>
+
     <div class="type-tabs">
       <button class="active" data-tab="cash" onclick="switchChkTab('cash')">① 现金盘点</button>
       <button data-tab="bank" onclick="switchChkTab('bank')">② 银行余额调节表</button>
@@ -1013,6 +1032,7 @@ function switchChkTab(tab) {
 }
 
 async function loadCheckup() {
+  loadAuditPeriods();
   // ---- 现金 ----
   const cb = await (await fetch('/api/v1/checkup/cash/balance')).json();
   document.getElementById('cashBook').textContent = '¥' + fmt(cb.book_balance);
@@ -1068,6 +1088,68 @@ async function loadCheckup() {
   if (!ssel.options.length) {
     ssel.innerHTML = cps.items.map(c => `<option value="${c.id}">[${c.kind_cn}] ${c.name}</option>`).join('');
   }
+}
+
+// ---------- 全面稽核（常驻稽核员） ----------
+let _auditTimer = null;
+
+async function loadAuditPeriods() {
+  const sel = document.getElementById('auditPeriod');
+  if (!sel || sel.options.length) return;
+  const p = await (await fetch('/api/v1/closing/periods')).json();
+  sel.innerHTML = p.available.slice().reverse()
+    .map(m => `<option value="${m}">${m}</option>`).join('');
+  // 默认选最近一个还没封账的期间——稽核是为了决定能不能结
+  const open = p.available.slice().reverse()
+    .find(m => !p.closed.some(c => c.period === m));
+  if (open) sel.value = open;
+}
+
+async function startTeamAudit() {
+  const period = document.getElementById('auditPeriod').value;
+  const btn = document.getElementById('auditBtn');
+  const st = document.getElementById('auditStatus');
+  const box = document.getElementById('auditResult');
+  if (!period) { st.textContent = '没有可选期间'; return; }
+
+  btn.disabled = true;
+  box.style.display = 'none';
+  st.textContent = '正在招募稽核员…';
+  const r = await fetch('/api/v1/audit/team', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({period})
+  });
+  const d = await r.json();
+  if (!r.ok) {
+    btn.disabled = false;
+    st.textContent = '启动失败：' + (d.detail || '');
+    return;
+  }
+  pollTeamAudit(d.job_id);
+}
+
+function pollTeamAudit(jobId) {
+  clearInterval(_auditTimer);
+  _auditTimer = setInterval(async () => {
+    const btn = document.getElementById('auditBtn');
+    const st = document.getElementById('auditStatus');
+    const box = document.getElementById('auditResult');
+    const d = await (await fetch(`/api/v1/audit/team/${jobId}`)).json();
+
+    if (d.status === 'starting' || d.status === 'running') {
+      st.textContent = `稽核员 ${d.teammate || 'auditor_wang'} 正在核对 ${d.period} 的账目…（${d.elapsed_sec || 0}s）`;
+      return;
+    }
+    clearInterval(_auditTimer);
+    btn.disabled = false;
+    if (d.status === 'done') {
+      st.textContent = `✓ 稽核完成（${d.elapsed_sec}s）`;
+      box.style.display = 'block';
+      box.textContent = d.result;
+    } else {
+      st.textContent = '✗ 稽核失败：' + (d.error || '未知错误');
+    }
+  }, 2000);
 }
 
 async function submitCashCheck() {

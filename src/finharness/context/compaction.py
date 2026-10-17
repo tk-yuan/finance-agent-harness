@@ -105,7 +105,10 @@ def _llm_summary(old: list[dict], llm) -> str:
     for m in old:
         role = m.get("role")
         if role == "tool":
-            continue  # 工具原文太占地方，摘要时不重复喂
+            # 不能整个丢掉：否则摘要里只剩"调过哪些工具"，
+            # 模型醒来后以为数据全没了，只能重查或直接放弃（实测踩过）。
+            transcript.append("[工具结果] " + M.text_of(m)[:300])
+            continue
         if role == "assistant" and m.get("tool_calls"):
             names = [c["function"]["name"] for c in m["tool_calls"]]
             transcript.append(f"[助手] 调用工具 {', '.join(names)}")
@@ -114,14 +117,15 @@ def _llm_summary(old: list[dict], llm) -> str:
 
     prompt = (
         "把下面这段 Agent 执行历史压缩成要点，供后续推理使用。\n"
-        "必须保留：已经查明的结论与数字、已经调用过的工具及其关键返回、"
-        "尚未完成的待办、以及任何结论所依据的政策文号。\n"
-        "不要保留：寒暄、重复的中间过程。控制在 300 字以内。\n\n"
+        "必须保留：已经查明的结论与数字、工具返回的关键数据（单据号、金额、笔数）、"
+        "已经调用过的工具及其关键返回、尚未完成的待办、以及任何结论所依据的政策文号。\n"
+        "不要保留：寒暄、重复的中间过程。控制在 400 字以内。\n\n"
         + "\n".join(transcript[-60:])
     )
     try:
-        text = llm.complete(prompt, system="你是对话压缩器，只输出压缩后的要点。", max_tokens=600)
-        return "【已压缩的历史（模型蒸馏）】\n" + text.strip()
+        text = llm.complete(prompt, system="你是对话压缩器，只输出压缩后的要点。", max_tokens=700)
+        return ("【已压缩的历史（模型蒸馏）】\n" + text.strip()
+                + "\n（需要具体数据时重新调用工具获取，不要凭摘要猜测。）")
     except LLMError:
         return _rule_summary(old)
 

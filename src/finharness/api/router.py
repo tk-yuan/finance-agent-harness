@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from ..api.v1 import (
     accounting,
     analysis,
+    audit,
     chat,
     checkup,
     closing,
@@ -19,6 +20,7 @@ from ..api.v1 import (
 api_v1 = APIRouter(prefix="/api/v1")
 api_v1.include_router(accounting.router)
 api_v1.include_router(analysis.router)
+api_v1.include_router(audit.router)
 api_v1.include_router(chat.router)
 api_v1.include_router(checkup.router)
 api_v1.include_router(closing.router)
