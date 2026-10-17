@@ -119,5 +119,8 @@ def test_team_audit_routes_are_mounted():
                 collect(sub)
 
     collect(app.routes)
+    # FastAPI 新版本里 include_router 挂进去的是没有 .path 的对象，
+    # 本机旧版本能取到、CI 上取不到——必须和 openapi 的路径并起来（和 ci.yml 一致）。
+    paths |= set(app.openapi().get("paths", {}))
     assert "/api/v1/audit/team" in paths
     assert "/api/v1/audit/team/{job_id}" in paths
