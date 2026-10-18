@@ -914,9 +914,14 @@ async function loadIncomeStatement() {
 async function loadClosingPanel() {
   const p = await (await fetch('/api/v1/closing/periods')).json();
   const sel = document.getElementById('closePeriod');
-  sel.innerHTML = p.available.slice().reverse()
-    .map(m => `<option value="${m}">${m}</option>`).join('');
   const closedSet = new Set(p.closed.map(c => c.period));
+  const opts = p.available.slice().reverse();
+  sel.innerHTML = opts
+    .map(m => `<option value="${m}">${m}${closedSet.has(m) ? '（已结账）' : ''}</option>`)
+    .join('');
+  // 默认落在最近一个还没结账的期间——否则一打开就是"已经结过账了"
+  const open = opts.find(m => !closedSet.has(m));
+  if (open) sel.value = open;
   document.getElementById('closedList').innerHTML = p.closed.length
     ? '已结账期间：' + p.closed.map(c => `${c.period}（${c.closed_at}）`).join('、')
     : '尚无已结账期间。';
@@ -932,8 +937,13 @@ async function previewClosing() {
   msg.textContent = '';
   const r = await fetch(`/api/v1/closing/preview?period=${period}`);
   const d = await r.json();
-  if (!r.ok) { document.getElementById('closePreview').innerHTML =
-    `<span style="color:#dc2626">${d.detail || '无法结账'}</span>`; return; }
+  // 后端对"已结账"返回 200 + ok:false（不是 HTTP 错误），必须看 ok
+  if (!r.ok || d.ok === false) {
+    document.getElementById('closePreview').innerHTML =
+      `<span style="color:#dc2626">${d.detail || d.message || '无法结账'}</span>`;
+    document.getElementById('doCloseBtn').style.display = 'none';
+    return;
+  }
 
   let html = `<div style="font-size:13px;line-height:2">
     本月收入 <b>¥${fmt(d.income_total)}</b>　支出 <b>¥${fmt(d.expense_total)}</b>
