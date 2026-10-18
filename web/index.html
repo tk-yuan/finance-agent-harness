@@ -730,6 +730,7 @@ async function loadAccounting() {
     body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">
       暂无待审核单据。出纳提交后会自动出现在这里。</td></tr>`;
     updatePendingBadge();
+    loadClosingPanel();   // 待审核为空也要加载结账面板，否则下面下拉是空的
     return;
   }
 
