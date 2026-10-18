@@ -107,5 +107,5 @@ EPHEMERAL = (
 PERSISTENT = (
     "\n\n部署方式：你是**常设岗位**，跨任务保留上下文。"
     "每次动手前先用 team_board 看有没有派给你的活；"
-    "做完用 send_message 把结果回报给 lead。"
+    "做完直接给出结论——运行时会自动把它回报给 lead。"
 )

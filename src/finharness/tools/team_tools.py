@@ -30,7 +30,7 @@ READ = {
     "query_entries", "get_account_balance", "query_counterparty", "list_pending",
     "list_closed_periods", "get_current_time", "days_between", "read_file",
     "list_dir", "search_files", "load_skill", "search_accounting_rules",
-    "team_board", "send_message",
+    "team_board",
 }
 DRAFT = {"submit_voucher", "withdraw_voucher", "write_file"}
 REVIEW = {"post_voucher", "reject_voucher", "recategorize"}
@@ -75,7 +75,7 @@ def register_team_tools(registry: ToolRegistry, team: Team) -> None:
                 return {"error": f"未知队友模板：{name}", "available": list(specs)}
             spec = TeammateSpec(name=name, role=role,
                                 system_prompt=f"你是{role}。完成分配给你的任务，"
-                                              f"结果用 send_message 回报 lead。",
+                                              f"直接给出结论——运行时会自动回报给 lead。",
                                 allow=READ)
         return team.spawn(spec)
 
