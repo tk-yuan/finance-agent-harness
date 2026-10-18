@@ -157,7 +157,7 @@ class Agent:
                 break
             convo = ctx["messages"]
 
-            resp = self._call_model(convo, turn)
+            resp = self._call_model(convo, turn)  # ← 问模型
             if resp is None:
                 stop_reason, answer = "model_error", f"[中止] 模型调用失败（已有结论：{last_text[:200]}）"
                 break
