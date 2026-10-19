@@ -1,15 +1,15 @@
 """精简政策检索：给 Agent 用的检索工具。
 
-与独立项目 `tax-rag-eval` 的分工：
+与独立项目 `finance-rag-eval` 的分工：
   那个项目专门做**检索质量评测**——切分策略对比、消融实验、量化指标；
-  本项目只需要一个**够用的检索**，所以保留「召回 + 精排」两段式即可，不做评测。
-
-两个项目因此形成分层：检索能力下沉，Agent 专注编排。
-如果你把两套代码都看了，会发现检索内核同构，但目标不同——这是刻意的。
+  本项目只需要一个**够用的检索**，但已把那边验证有效的两项搬了过来：
+  混合召回（向量 + BM25，RRF 融合）与文档级去重。
 
 检索内核仍然是自己写的：
   · 切分：按条款边界切（政策文本天然有「一、」「二、」结构）
   · 向量：bge-m3（硅基流动），numpy 精确余弦检索
+  · 关键词：手写 BM25（文号、数字这类精确命中）
+  · 融合：RRF，只看名次不看分数
   · 精排：bge-reranker-v2-m3
 """
 
@@ -27,6 +27,7 @@ import httpx
 import numpy as np
 
 from ..config import CACHE_DIR, EMBED_MODEL, SILICONFLOW_API_KEY, SILICONFLOW_BASE_URL
+from .bm25 import BM25, rrf_fuse
 
 ARTICLE_SPLIT = re.compile(
     r"(?m)(?=^\s*(?:第[一二三四五六七八九十百零]+\s*条|[一二三四五六七八九十]+\s*、))"
@@ -128,6 +129,7 @@ class PolicyIndex:
         self.chunks: list[dict] = []
         self.vectors: np.ndarray | None = None
         self.cache = _Cache(CACHE_DIR / "embed_cache.db")
+        self._bm25: BM25 | None = None
 
     # —— 构建 ——
     def build(self, rebuild: bool = False) -> int:
@@ -168,22 +170,67 @@ class PolicyIndex:
         if not self.chunks:
             self.build()
 
-    # —— 检索：召回 + 精排 ——
-    def search(self, query: str, k: int = 3, recall: int = 20) -> list[dict]:
-        self.ensure()
+    # —— 检索：混合召回 + 去重 + 精排 ——
+    def _ensure_bm25(self) -> BM25:
+        if self._bm25 is None:                       # 首次用时才建，纯内存
+            self._bm25 = BM25().fit([c["text"] for c in self.chunks])
+        return self._bm25
+
+    def _vector_recall(self, query: str, n: int) -> list[int]:
         qv = np.asarray(embed_texts([query], cache=self.cache)[0], dtype=np.float32)
         qv /= max(float(np.linalg.norm(qv)), 1e-9)
         sims = self.vectors @ qv
-        n = min(recall, len(sims))
+        n = min(n, len(sims))
         idx = np.argpartition(-sims, n - 1)[:n]
-        idx = idx[np.argsort(-sims[idx])]
+        return [int(i) for i in idx[np.argsort(-sims[idx])]]
 
-        cand = [self.chunks[int(i)] for i in idx]
-        ranked = rerank(query, [c["text"] for c in cand], top_n=min(k, len(cand)))
+    def _bm25_recall(self, query: str, n: int) -> list[int]:
+        return [i for i, _ in self._ensure_bm25().search(query, top_k=n)]
+
+    def _dedupe_by_doc(self, idxs: list[int], limit: int) -> list[int]:
+        """同一份文件只留排名最高的片段。doc 级召回任务里，同源片段会白占名额。"""
+        seen: set[str] = set()
+        out: list[int] = []
+        for i in idxs:
+            did = self.chunks[i].get("doc_id")
+            if did in seen:
+                continue
+            seen.add(did)
+            out.append(i)
+            if len(out) >= limit:
+                break
+        return out
+
+    def search(self, query: str, k: int = 3, recall: int = 20,
+               mode: str = "hybrid", dedupe_docs: bool = True,
+               use_rerank: bool = True) -> list[dict]:
+        self.ensure()
+        if mode == "vector":
+            rankings = [self._vector_recall(query, recall)]
+        elif mode == "bm25":
+            rankings = [self._bm25_recall(query, recall)]
+        elif mode == "hybrid":
+            rankings = [self._vector_recall(query, recall),
+                        self._bm25_recall(query, recall)]
+        else:
+            raise ValueError(f"未知检索方式：{mode}")
+
+        fused = [i for i, _ in rrf_fuse(rankings)]    # 两路按名次融合
+        if dedupe_docs:
+            fused = self._dedupe_by_doc(fused, limit=recall)
+        cand = [self.chunks[i] for i in fused[:recall]]
+
+        if use_rerank and cand:
+            ranked = rerank(query, [c["text"] for c in cand],
+                            top_n=min(k, len(cand)))
+            pairs = [(fused[i], score) for i, score in ranked]
+        else:
+            pairs = [(i, 1.0 / (rank + 1)) for rank, i in enumerate(fused[:k])]
+
         out = []
-        for rank, (i, score) in enumerate(ranked, 1):
-            c = dict(cand[i])
-            c["score"] = round(score, 4)
+        for rank, (i, score) in enumerate(pairs, 1):
+            c = dict(self.chunks[i])
+            c["score"] = round(float(score), 4)
             c["rank"] = rank
             out.append(c)
         return out
