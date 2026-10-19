@@ -31,6 +31,6 @@ LABEL org.opencontainers.image.title="finance-agent-harness" \
 EXPOSE 8000
 
 # 默认起服务：
-#   /         业务界面（记账 / 审核 / 对账 / 报表 / 财务分析）
-#   /console  Agent 执行链路与审批面板
+#   /          业务界面（记账 / 审核 / 对账 / 报表 / 财务分析）
+#   审批与执行链路都在业务界面里，不再有单独的 /console
 CMD ["python", "scripts/serve.py", "0.0.0.0", "8000"]
