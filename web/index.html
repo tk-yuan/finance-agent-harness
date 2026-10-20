@@ -1590,7 +1590,10 @@ function addMsg(role, text) {
   const d = document.createElement('div');
   d.className = 'msg ' + role;
   const b = document.createElement('div');
-  b.className = 'bubble'; b.textContent = text;
+  b.className = 'bubble';
+  // AI 的历史消息也走 markdown 渲染：否则刷新后表格/标题会显示成原始符号
+  if (role === 'ai') { b.classList.add('md'); b.innerHTML = mdRender(text); }
+  else b.textContent = text;
   d.appendChild(b); chatBox.appendChild(d);
   chatBox.scrollTop = chatBox.scrollHeight;
   return b;
@@ -2096,8 +2099,28 @@ async function runReconcile() {
   try {
     const r = await fetch('/api/v1/stats/reconcile', {method:'POST'});
     const d = await r.json();
-    box.textContent = d.report || JSON.stringify(d);
+    renderReconcile(d);
   } catch(e) { box.textContent = '失败：' + e; }
+}
+
+function renderReconcile(d){
+  const rep = d.report || {};
+  const box = document.getElementById('reconcileResult');
+  if (rep.message) { box.textContent = rep.message; return; }
+  const types = rep.anomaly_by_type || {};
+  const lines = Object.entries(types).map(([k, n]) => {
+    const samples = (rep.anomalies || []).filter(x => x['类型'] === k).slice(0, 3)
+      .map(x => {
+        const ids = Array.isArray(x['单据']) ? x['单据'].join('、') : x['单据'];
+        const amount = x['金额'] != null ? '¥' + fmt(x['金额']) : '';
+        return `${amount}${ids ? ' 单据 ' + esc(String(ids)) : ''}`.trim();
+      }).filter(Boolean).join('；');
+    return `<li><b>${esc(k)}</b>　${n} 条${samples ? '：' + samples : ''}${n > 3 ? ' …' : ''}</li>`;
+  }).join('');
+  box.innerHTML = `<div style="margin-bottom:10px">期间 <b>${esc(rep.period || '')}</b>　`
+    + `已入账 <b>${rep.count ?? 0}</b> 笔　收入 ${fmt(rep.income || 0)}　支出 ${fmt(rep.expense || 0)}　`
+    + `异常 <b>${rep.anomaly_count ?? 0}</b> 条</div>`
+    + (lines ? `<ul style="margin:0;padding-left:20px">${lines}</ul>` : '<div>未发现异常</div>');
 }
 </script>
 </body>

@@ -14,28 +14,49 @@
 
 ## 界面预览
 
-**一个界面，用户同时是使用者也是把关人**——记账、审核、对账、报表、财务分析，都在这里，
-对话也在同一个窗口里：
+**一个界面，用户同时是使用者也是把关人**——看账、做账、和 Agent 对话，都在同一个窗口里。
 
-![财务总览](docs/screenshots/overview.png)
+### 一、看账
 
-财务总览：558 笔账目、12 个月收支趋势、支出科目分布（演示账套）。
+| <img src="docs/screenshots/overview.png" width="440"> | <img src="docs/screenshots/entries.png" width="440"> |
+|---|---|
+| **财务总览**：558 笔账目、12 个月收支趋势、支出科目分布 | **账目明细**：每笔的借贷方向、科目、状态与凭证 |
 
-Agent 要碰**工作区之外的东西**（读你的文件、执行命令），卡片会**弹在对话里**，
-命令原样显示给你看清楚再决定。批过的卡会留痕：
+| <img src="docs/screenshots/income.png" width="440"> | <img src="docs/screenshots/balances.png" width="440"> |
+|---|---|
+| **利润表**：营业收入、成本、费用逐级算出净利润 | **账户余额**：资产 / 负债 / 权益三张表，自动配平 |
 
-![对话里的授权卡片](docs/screenshots/approval-inline.jpg)
+| <img src="docs/screenshots/counterparties.png" width="440"> | <img src="docs/screenshots/company.png" width="440"> |
+|---|---|
+| **往来单位**：每个客户/供应商的笔数、金额、挂账 | **公司概况**：演示账套的业务背景与经营规模 |
 
-上图里：第一张卡（`dir /b`）已批准、留了痕迹；第二张卡是 Agent 又想换个路径重试——
-**每一次都要单独点**，批过一条不等于放过所有。
+### 二、做账：出纳 → 会计 → 月末
 
-「🔍 月末核对」页还可以一键招**只读的常驻稽核员**做全面稽核，
-结论直接显示在页面上，不占主对话上下文：
+| <img src="docs/screenshots/record.png" width="300"> | <img src="docs/screenshots/accounting.png" width="440"> | <img src="docs/screenshots/checkup.png" width="440"> |
+|---|---|---|
+| **智能出纳**：上传凭证，自动填金额/日期/对方，只登记待审核 | **智能会计**：逐笔审核——定科目、通过、驳回；入账必须在这里做 | **月末核对**：现金盘点 / 银行调节表 / 往来对账单 |
 
-![全面稽核](docs/screenshots/month-end-audit.png)
+<img src="docs/screenshots/month-end-audit.png" width="760">
 
-跑完之后，Agent 这一趟每一步干了什么，会落成一份 HTML 时间线，从对话里的
-「↗ 看它怎么做的」点开就能回看。
+**全面稽核**：一键招**只读的常驻稽核员**，整期账目导成清单交给它，结论直接回显，不占主对话上下文。
+
+<img src="docs/screenshots/reconcile.png" width="760">
+
+**异常检测**：三类异常按类型汇总（缺凭证、大额、疑似重复），点一次就能扫完整个期间。
+
+### 三、和 Agent 协作
+
+<img src="docs/screenshots/chat.png" width="760">
+
+**对话里直接查账**：结论用 markdown 渲染，每一步调了哪些工具都会标出来；跑完留一个「↗ 看它怎么做的」。
+
+<img src="docs/screenshots/trace-timeline.png" width="760">
+
+**执行链路时间线**：每一轮 `model` / `tool` 的耗时、参数、上下文大小（`ctx_chars`）都落成 HTML，离线也能回看。
+
+<img src="docs/screenshots/approval-inline.jpg" width="420">
+
+**授权卡片弹在对话里**：Agent 要碰工作区外的东西（读文件、执行命令），命令原样显示，你点允许才执行。批过的卡留痕；**换一条命令要重新点**，批过一次不等于放过所有。
 
 ---
 

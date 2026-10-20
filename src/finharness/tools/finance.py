@@ -152,12 +152,16 @@ def reconcile_month(period: str = "") -> dict:
 
     income = round(sum(r.amount for r in rows if r.entry_type == "income"), 2)
     expense = round(sum(r.amount for r in rows if r.entry_type == "expense"), 2)
+    by_type: dict[str, int] = {}
+    for a in anomalies:
+        by_type[a["类型"]] = by_type.get(a["类型"], 0) + 1
     return {
         "period": period,
         "count": len(rows),
         "income": income,
         "expense": expense,
         "anomaly_count": len(anomalies),
+        "anomaly_by_type": by_type,
         "anomalies": anomalies[:15],
         "bank_reconciled": bool(recon.reconciled) if recon else False,
     }

@@ -44,11 +44,17 @@ def entries(
 
 
 @router.post("/reconcile", summary="执行对账，返回异常报告")
-def reconcile() -> dict:
+def reconcile(period: str = Query(default="", description="YYYY-MM，不填=最近一个有数据的期间")) -> dict:
     from ...tools.finance import reconcile_month
 
+    if not period:
+        # 当前月没账时检查最近一个有数据的期间，否则页面永远显示“没有账目”
+        from ...services.report_service import available_periods
+        months = available_periods()
+        period = months[-1] if months else ""
+
     entries = stats_service.list_entries(limit=2000)
-    report = reconcile_month.invoke({})
+    report = reconcile_month(period)
     return {"report": report, "checked": len(entries)}
 
 
